@@ -1,3 +1,4 @@
+import { safeVideoSource } from './video';
 import { slugify } from '@/utils/slugify';
 import { safeHref } from '@/utils/url';
 
@@ -21,6 +22,8 @@ export const NODE_TYPES = [
   'horizontalRule',
   'hardBreak',
   'image',
+  'video',
+  'footnote',
   'table',
   'tableRow',
   'tableHeader',
@@ -31,7 +34,16 @@ export const NODE_TYPES = [
   'citation',
 ] as const;
 
-export const MARK_TYPES = ['bold', 'italic', 'underline', 'strike', 'code', 'link', 'subscript', 'superscript'] as const;
+export const MARK_TYPES = [
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'code',
+  'link',
+  'subscript',
+  'superscript',
+] as const;
 
 export const CALLOUT_VARIANTS = ['info', 'note', 'warning', 'key-point'] as const;
 
@@ -107,7 +119,11 @@ function sanitizeMarks(marks: unknown): RichTextMark[] | undefined {
   return result.length > 0 ? result : undefined;
 }
 
-function sanitizeAttrs(type: NodeType, attrs: unknown, options: SanitizeOptions): Record<string, AttrValue> | null | undefined {
+function sanitizeAttrs(
+  type: NodeType,
+  attrs: unknown,
+  options: SanitizeOptions,
+): Record<string, AttrValue> | null | undefined {
   const source = isRecord(attrs) ? attrs : {};
   switch (type) {
     case 'heading': {
@@ -117,8 +133,18 @@ function sanitizeAttrs(type: NodeType, attrs: unknown, options: SanitizeOptions)
     case 'orderedList':
       return { start: clampInt(source.start, 1, 10_000) ?? 1 };
     case 'codeBlock': {
-      const language = typeof source.language === 'string' && /^[a-z0-9+#.-]{1,20}$/i.test(source.language) ? source.language : null;
+      const language =
+        typeof source.language === 'string' && /^[a-z0-9+#.-]{1,20}$/i.test(source.language) ? source.language : null;
       return { language };
+    }
+    case 'footnote': {
+      const id = typeof source.id === 'string' && /^[a-f0-9-]{36}$/.test(source.id) ? source.id : null;
+      const text = typeof source.text === 'string' ? source.text.slice(0, 1000).trim() : '';
+      return id && text ? { id, text } : null;
+    }
+    case 'video': {
+      const src = safeVideoSource(source.src);
+      return src ? { src, title: shortText(source.title) } : null;
     }
     case 'image': {
       const src = typeof source.src === 'string' ? source.src.trim() : '';
@@ -227,7 +253,8 @@ export function richTextToPlainText(doc: RichTextDoc): string {
   const walk = (node: RichTextNode) => {
     if (node.type === 'text' && node.text) parts.push(node.text);
     else if (node.type === 'hardBreak') parts.push('\n');
-    else if (node.type === 'inlineMath' || node.type === 'blockMath') parts.push(` ${String(node.attrs?.latex ?? '')} `);
+    else if (node.type === 'inlineMath' || node.type === 'blockMath')
+      parts.push(` ${String(node.attrs?.latex ?? '')} `);
     node.content?.forEach(walk);
     if (BLOCK_TYPES.has(node.type)) parts.push('\n');
   };

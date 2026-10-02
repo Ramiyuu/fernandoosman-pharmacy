@@ -237,6 +237,7 @@ export function ArticleEditor({ article, options, maxPdfBytes }: ArticleEditorPr
       className="min-h-dvh"
       noValidate
     >
+      <h1 className="sr-only">Article editor</h1>
       <div className="sticky top-0 z-20 border-b border-rule bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-[90rem] flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-10">
           <Link href="/admin/articles" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">

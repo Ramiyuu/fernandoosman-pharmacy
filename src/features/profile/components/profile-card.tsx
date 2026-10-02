@@ -31,13 +31,23 @@ export function ProfileCard({ profile }: { profile: SiteProfile }) {
   const studyLine = [profile.course, profile.university].filter(Boolean).join(', ');
 
   return (
-    <aside aria-label="Profile summary" className="rounded-xl border border-rule bg-mist p-6">
+    <aside aria-label="Profile summary" className="profile-panel rounded-xl border border-rule bg-white p-6 sm:p-8">
       <div className="flex items-center gap-4">
-        <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-navy-900">
+        <div className="relative size-24 shrink-0 overflow-hidden rounded-lg bg-navy-900">
           {photo ? (
-            <Image src={photo} alt={`Portrait of ${profile.full_name}`} fill sizes="80px" className="object-cover" priority />
+            <Image
+              src={photo}
+              alt={`Portrait of ${profile.full_name}`}
+              fill
+              sizes="96px"
+              className="object-cover"
+              priority
+            />
           ) : (
-            <span className="flex size-full items-center justify-center text-2xl font-semibold text-teal-200" aria-hidden="true">
+            <span
+              className="flex size-full items-center justify-center text-2xl font-semibold text-teal-200"
+              aria-hidden="true"
+            >
               {initials(profile.full_name)}
             </span>
           )}
@@ -64,7 +74,9 @@ export function ProfileCard({ profile }: { profile: SiteProfile }) {
             <dt className="sr-only">Languages</dt>
             <Languages className="mt-0.5 size-4 shrink-0 text-teal-600" aria-hidden="true" />
             <dd className="text-navy-900">
-              {profile.languages.map((language) => `${language.name}${language.level ? ` (${language.level})` : ''}`).join(', ')}
+              {profile.languages
+                .map((language) => `${language.name}${language.level ? ` (${language.level})` : ''}`)
+                .join(', ')}
             </dd>
           </div>
         ) : null}
@@ -77,12 +89,32 @@ export function ProfileCard({ profile }: { profile: SiteProfile }) {
         ) : null}
       </dl>
 
+      {profile.expected_graduation ? (
+        <p className="mt-4 text-sm text-muted">
+          Expected graduation <strong className="text-ink">{profile.expected_graduation}</strong>
+        </p>
+      ) : null}
+      {profile.current_studies?.length ? (
+        <div className="mt-5 border-t border-rule pt-4">
+          <p className="text-sm font-medium">Currently studying</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">{profile.current_studies.join(' · ')}</p>
+        </div>
+      ) : null}
+      {profile.scientific_interests?.length ? (
+        <div className="mt-5 border-t border-rule pt-4">
+          <p className="text-sm font-medium">Scientific focus</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">{profile.scientific_interests.join(' · ')}</p>
+        </div>
+      ) : null}
       {profile.interests.length > 0 ? (
         <div className="mt-6">
           <p className="text-sm font-medium text-ink">Professional interests</p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {profile.interests.map((interest) => (
-              <li key={interest} className="rounded-sm bg-white px-2 py-1 text-xs text-navy-800 ring-1 ring-rule ring-inset">
+              <li
+                key={interest}
+                className="rounded-sm bg-white px-2 py-1 text-xs text-navy-800 ring-1 ring-rule ring-inset"
+              >
                 {interest}
               </li>
             ))}
@@ -92,7 +124,12 @@ export function ProfileCard({ profile }: { profile: SiteProfile }) {
 
       <div className="mt-6 flex flex-wrap gap-2 border-t border-rule pt-5">
         {linkedin ? (
-          <a href={linkedin} target="_blank" rel="noopener noreferrer me" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+          <a
+            href={linkedin}
+            target="_blank"
+            rel="noopener noreferrer me"
+            className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          >
             <LinkedInIcon className="size-3.5 text-azure-700" /> LinkedIn
           </a>
         ) : null}

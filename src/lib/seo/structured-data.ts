@@ -33,7 +33,7 @@ export function articleJsonLd(article: ArticleDetail, authorName: string) {
   const image = publicImageUrl('article-images', article.cover_image_path);
   return {
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': article.references.length > 0 ? 'ScholarlyArticle' : 'Article',
     headline: article.title,
     alternativeHeadline: article.subtitle || undefined,
     description: article.seo_description || article.excerpt,

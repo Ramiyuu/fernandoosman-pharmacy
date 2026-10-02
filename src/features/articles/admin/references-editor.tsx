@@ -14,7 +14,18 @@ interface ReferencesEditorProps {
   errors?: FieldErrors<ArticleFormValues>['references'];
 }
 
-const EMPTY_REFERENCE = { title: '', authors: '', journal: '', year: '', doi: '', url: '', pmid: '' };
+const EMPTY_REFERENCE = {
+  title: '',
+  authors: '',
+  journal: '',
+  year: '',
+  doi: '',
+  url: '',
+  pmid: '',
+  volume: '',
+  issue: '',
+  pages: '',
+};
 
 /** Numbered reference list; in-text citations [n] point at these numbers. */
 export function ReferencesEditor({ control, register, errors }: ReferencesEditorProps) {
@@ -27,7 +38,9 @@ export function ReferencesEditor({ control, register, errors }: ReferencesEditor
           <h2 id="references-editor-heading" className="text-base font-semibold text-ink">
             References
           </h2>
-          <p className="text-sm text-muted">Shown as a numbered list at the end. Cite them in the text with the citation button.</p>
+          <p className="text-sm text-muted">
+            Shown as a numbered list at the end. Cite them in the text with the citation button.
+          </p>
         </div>
         <Button variant="secondary" size="sm" onClick={() => append(EMPTY_REFERENCE)}>
           <Plus aria-hidden="true" /> Add reference
@@ -49,30 +62,100 @@ export function ReferencesEditor({ control, register, errors }: ReferencesEditor
                     <label htmlFor={`${base}.title`} className="sr-only">
                       Title of reference {index + 1}
                     </label>
-                    <Input id={`${base}.title`} placeholder="Title" aria-invalid={Boolean(fieldErrors?.title)} {...register(`${base}.title`)} />
-                    {fieldErrors?.title ? <p className="mt-1 text-xs text-danger-700">{fieldErrors.title.message}</p> : null}
+                    <Input
+                      id={`${base}.title`}
+                      placeholder="Title"
+                      aria-invalid={Boolean(fieldErrors?.title)}
+                      {...register(`${base}.title`)}
+                    />
+                    {fieldErrors?.title ? (
+                      <p className="mt-1 text-xs text-danger-700">{fieldErrors.title.message}</p>
+                    ) : null}
                   </div>
-                  <Input className="sm:col-span-3" placeholder="Authors (e.g. Cox DR, Smith J)" aria-label={`Authors of reference ${index + 1}`} {...register(`${base}.authors`)} />
-                  <Input className="sm:col-span-2" placeholder="Journal" aria-label={`Journal of reference ${index + 1}`} {...register(`${base}.journal`)} />
-                  <Input className="sm:col-span-1" placeholder="Year" inputMode="numeric" aria-label={`Year of reference ${index + 1}`} {...register(`${base}.year`)} />
+                  <Input
+                    className="sm:col-span-3"
+                    placeholder="Authors (e.g. Cox DR, Smith J)"
+                    aria-label={`Authors of reference ${index + 1}`}
+                    {...register(`${base}.authors`)}
+                  />
+                  <Input
+                    className="sm:col-span-2"
+                    placeholder="Journal"
+                    aria-label={`Journal of reference ${index + 1}`}
+                    {...register(`${base}.journal`)}
+                  />
+                  <Input
+                    className="sm:col-span-1"
+                    placeholder="Year"
+                    inputMode="numeric"
+                    aria-label={`Year of reference ${index + 1}`}
+                    {...register(`${base}.year`)}
+                  />
+
+                  {(['volume', 'issue', 'pages'] as const).map((name) => (
+                    <Input
+                      key={name}
+                      className="sm:col-span-2"
+                      placeholder={name}
+                      aria-label={`${name} of reference ${index + 1}`}
+                      {...register(`${base}.${name}`)}
+                    />
+                  ))}
                   <div className="sm:col-span-2">
-                    <Input placeholder="DOI (10.xxxx/…)" aria-label={`DOI of reference ${index + 1}`} aria-invalid={Boolean(fieldErrors?.doi)} {...register(`${base}.doi`)} />
-                    {fieldErrors?.doi ? <p className="mt-1 text-xs text-danger-700">{fieldErrors.doi.message}</p> : null}
+                    <Input
+                      placeholder="DOI (10.xxxx/…)"
+                      aria-label={`DOI of reference ${index + 1}`}
+                      aria-invalid={Boolean(fieldErrors?.doi)}
+                      {...register(`${base}.doi`)}
+                    />
+                    {fieldErrors?.doi ? (
+                      <p className="mt-1 text-xs text-danger-700">{fieldErrors.doi.message}</p>
+                    ) : null}
                   </div>
                   <div className="sm:col-span-3">
-                    <Input placeholder="URL (https://…)" aria-label={`URL of reference ${index + 1}`} aria-invalid={Boolean(fieldErrors?.url)} {...register(`${base}.url`)} />
-                    {fieldErrors?.url ? <p className="mt-1 text-xs text-danger-700">{fieldErrors.url.message}</p> : null}
+                    <Input
+                      placeholder="URL (https://…)"
+                      aria-label={`URL of reference ${index + 1}`}
+                      aria-invalid={Boolean(fieldErrors?.url)}
+                      {...register(`${base}.url`)}
+                    />
+                    {fieldErrors?.url ? (
+                      <p className="mt-1 text-xs text-danger-700">{fieldErrors.url.message}</p>
+                    ) : null}
                   </div>
-                  <Input className="sm:col-span-1" placeholder="PMID" inputMode="numeric" aria-label={`PMID of reference ${index + 1}`} {...register(`${base}.pmid`)} />
+                  <Input
+                    className="sm:col-span-1"
+                    placeholder="PMID"
+                    inputMode="numeric"
+                    aria-label={`PMID of reference ${index + 1}`}
+                    {...register(`${base}.pmid`)}
+                  />
                 </div>
                 <div className="flex gap-1 sm:flex-col">
-                  <Button variant="ghost" size="icon-sm" disabled={index === 0} onClick={() => move(index, index - 1)} aria-label={`Move reference ${index + 1} up`}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={index === 0}
+                    onClick={() => move(index, index - 1)}
+                    aria-label={`Move reference ${index + 1} up`}
+                  >
                     <ArrowUp aria-hidden="true" />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" disabled={index === fields.length - 1} onClick={() => move(index, index + 1)} aria-label={`Move reference ${index + 1} down`}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={index === fields.length - 1}
+                    onClick={() => move(index, index + 1)}
+                    aria-label={`Move reference ${index + 1} down`}
+                  >
                     <ArrowDown aria-hidden="true" />
                   </Button>
-                  <Button variant="danger-ghost" size="icon-sm" onClick={() => remove(index)} aria-label={`Remove reference ${index + 1}`}>
+                  <Button
+                    variant="danger-ghost"
+                    size="icon-sm"
+                    onClick={() => remove(index)}
+                    aria-label={`Remove reference ${index + 1}`}
+                  >
                     <Trash2 aria-hidden="true" />
                   </Button>
                 </div>

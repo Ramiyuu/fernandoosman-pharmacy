@@ -1,17 +1,13 @@
 import { z } from 'zod';
 
-import {
-  imagePathSchema,
-  optionalDoi,
-  optionalUrl,
-  optionalUuid,
-  slugInput,
-  uuidSchema,
-} from './common';
+import { imagePathSchema, optionalDoi, optionalUrl, optionalUuid, slugInput, uuidSchema } from './common';
 
 export const referenceSchema = z.object({
   title: z.string().trim().min(1, 'Every reference needs a title.').max(500),
   authors: z.string().trim().max(1000).default(''),
+  volume: z.string().trim().max(40).default(''),
+  issue: z.string().trim().max(40).default(''),
+  pages: z.string().trim().max(80).default(''),
   journal: z.string().trim().max(300).default(''),
   year: z
     .union([z.coerce.number().int().min(1600).max(2100), z.literal(''), z.null()])
@@ -43,6 +39,13 @@ export const articleInputSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(50)).max(15, 'Use at most 15 tags.').default([]),
   language: z.enum(['en', 'pt']),
   translation_of_article_id: optionalUuid,
+  pmid: z
+    .string()
+    .trim()
+    .regex(/^\d{0,9}$/)
+    .default(''),
+  og_image_path: imagePathSchema.optional(),
+  published_at: z.union([z.literal(''), z.iso.datetime({ offset: true })]).optional(),
   featured: z.boolean(),
   doi: optionalDoi,
   external_url: optionalUrl,
@@ -70,4 +73,3 @@ export function publishBlockers(data: Pick<ArticleData, 'title' | 'excerpt'> & {
   if (data.contentText.trim().length < 50) problems.push('Add some content.');
   return problems;
 }
-

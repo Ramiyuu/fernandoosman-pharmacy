@@ -1,4 +1,4 @@
-import { FileText, Lock } from 'lucide-react';
+import { Download, FileText, Lock } from 'lucide-react';
 
 import type { ArticleAttachment } from '@/types/content';
 import { formatBytes } from '@/utils/format';
@@ -33,6 +33,14 @@ export function AttachmentsList({ files, preview = false }: { files: ArticleAtta
                 {file.label ? <span className="ml-2 break-all">{file.original_filename}</span> : null}
               </p>
             </div>
+            <a
+              href={`/api/files/${file.id}?download=1`}
+              className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-azure-700"
+              aria-label={`Download ${file.label || file.original_filename}`}
+            >
+              <Download size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">Download</span>
+            </a>
             {preview && file.visibility === 'private' ? (
               <span className="inline-flex items-center gap-1 text-xs text-warning-700">
                 <Lock className="size-3" aria-hidden="true" /> Private

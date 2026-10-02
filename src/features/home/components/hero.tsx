@@ -1,46 +1,48 @@
 import Link from 'next/link';
-
-import { Tagline, Wordmark } from '@/components/brand/brand';
+import { ArrowDown, ArrowUpRight } from 'lucide-react';
 import { LinkedInIcon } from '@/components/icons/brand-icons';
 import { Container } from '@/components/layout/container';
-import { buttonVariants } from '@/components/ui/button';
-import { ProfileCard } from '@/features/profile/components/profile-card';
 import type { SiteProfile } from '@/types/content';
 import { safeExternalUrl } from '@/utils/url';
+import { ResearchOrbit } from './research-orbit';
 
 export function Hero({ profile }: { profile: SiteProfile }) {
   const linkedin = safeExternalUrl(profile.linkedin_url);
   return (
-    <section aria-labelledby="hero-heading" className="border-b border-rule">
-      <Container className="grid gap-12 py-14 sm:py-20 lg:grid-cols-[1fr_22rem] lg:items-end lg:gap-16">
-        <div>
-          <Wordmark
-            as="h1"
-            id="hero-heading"
-            name={profile.full_name}
-            className="text-[2.375rem] leading-[1.08] tracking-[0.1em] sm:text-6xl lg:text-[4.25rem]"
-          />
-          <span className="brand-gradient mt-6 block h-[3px] w-24 rounded-full" aria-hidden="true" />
-          <Tagline items={profile.focus_areas} className="mt-5 text-base font-light sm:text-lg" />
-          {profile.headline ? <p className="mt-6 text-xl font-semibold text-navy-900 sm:text-2xl">{profile.headline}</p> : null}
-          {profile.short_bio ? (
-            <p className="mt-4 max-w-[34rem] font-serif text-xl leading-relaxed text-navy-900">{profile.short_bio}</p>
-          ) : null}
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/articles" className={buttonVariants({ size: 'lg' })}>
-              Read articles
+    <section aria-labelledby="hero-heading" className="science-hero">
+      <Container className="relative grid items-center gap-6 pt-16 pb-12 sm:pt-24 lg:grid-cols-[1.1fr_1fr] lg:gap-8 lg:pt-28 lg:pb-20">
+        <div className="hero-intro">
+          <p className="mb-7 flex items-center gap-3 text-sm font-medium text-teal-200">
+            <span className="size-2 rounded-full bg-teal-500" />
+            {profile.headline || 'Pharmacy Student'}
+          </p>
+          <h1 id="hero-heading" className="hero-name">
+            {profile.full_name}
+          </h1>
+          <p className="mt-7 max-w-xl text-base leading-relaxed text-navy-200 sm:text-lg">
+            {profile.focus_areas.join(' · ')}
+          </p>
+          <p className="mt-5 max-w-lg font-serif text-xl leading-relaxed text-white/90 sm:text-2xl">
+            {profile.short_bio}
+          </p>
+          <div className="mt-9 flex flex-wrap items-center gap-3">
+            <Link href="/articles" className="hero-primary">
+              Explore articles <ArrowUpRight size={18} aria-hidden="true" />
             </Link>
-            <Link href="/about" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
+            <Link href="/about" className="hero-secondary">
               About me
             </Link>
             {linkedin ? (
-              <a href={linkedin} target="_blank" rel="noopener noreferrer me" className={buttonVariants({ variant: 'ghost', size: 'lg' })}>
-                <LinkedInIcon className="size-4 text-azure-700" /> LinkedIn
+              <a href={linkedin} target="_blank" rel="noopener noreferrer me" className="hero-link">
+                <LinkedInIcon className="size-4" /> LinkedIn
               </a>
             ) : null}
           </div>
         </div>
-        <ProfileCard profile={profile} />
+        <ResearchOrbit />
+        <a href="#profile-snapshot" className="mt-8 flex w-fit items-center gap-3 text-xs text-navy-200 lg:col-span-2">
+          <ArrowDown size={15} aria-hidden="true" /> A closer look at my work
+        </a>
       </Container>
     </section>
   );

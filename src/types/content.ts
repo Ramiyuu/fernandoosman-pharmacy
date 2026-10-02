@@ -37,6 +37,9 @@ export interface ArticleCard {
 }
 
 export interface ArticleReference {
+  volume?: string;
+  issue?: string;
+  pages?: string;
   id?: string;
   title: string;
   authors: string;
@@ -56,6 +59,8 @@ export interface ArticleAttachment {
 }
 
 export interface ArticleDetail extends ArticleCard {
+  pmid: string | null;
+  og_image_path: string | null;
   content: RichTextDoc;
   doi: string | null;
   external_url: string | null;
@@ -171,6 +176,12 @@ export interface LanguageSkill {
 }
 
 export interface EducationEntry {
+  field?: string;
+  activities?: string;
+  visible?: boolean;
+  order?: number;
+  current?: boolean;
+  logo?: string | null;
   institution: string;
   degree: string;
   start: string;
@@ -179,6 +190,13 @@ export interface EducationEntry {
 }
 
 export interface ExperienceEntry {
+  employment_type?: string;
+  location?: string;
+  skills?: string;
+  visible?: boolean;
+  order?: number;
+  current?: boolean;
+  logo?: string | null;
   organization: string;
   role: string;
   start: string;
@@ -192,6 +210,14 @@ export interface SkillGroup {
 }
 
 export interface CertificationEntry {
+  visible?: boolean;
+  issue_date?: string;
+  expiration_date?: string;
+  credential_id?: string;
+  description?: string;
+  skills?: string;
+  image_path?: string | null;
+  pdf_file_id?: string | null;
   name: string;
   issuer: string;
   year: string;
@@ -199,6 +225,10 @@ export interface CertificationEntry {
 }
 
 export interface SiteProfile {
+  expected_graduation: string;
+  current_studies: string[];
+  scientific_interests: string[];
+  website_url: string | null;
   full_name: string;
   headline: string;
   focus_areas: string[];

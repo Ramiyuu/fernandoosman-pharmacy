@@ -34,7 +34,8 @@ export async function listAdminArticles(
   options: { view: ArticleListView; query?: string; page: number },
 ): Promise<Paginated<AdminArticleRow>> {
   const conditions: SqlFragment[] = [options.view === 'trash' ? sql`deleted_at is not null` : sql`deleted_at is null`];
-  if (options.view !== 'all' && options.view !== 'trash') conditions.push(sql`status = ${options.view}::public.content_status`);
+  if (options.view !== 'all' && options.view !== 'trash')
+    conditions.push(sql`status = ${options.view}::public.content_status`);
   if (options.query) conditions.push(sql`title ilike ${likePattern(options.query.slice(0, 100))}`);
   const where = sql.join(conditions, sql` and `);
 
@@ -46,7 +47,9 @@ export async function listAdminArticles(
         where ${where}
         order by updated_at desc
         limit ${ADMIN_PAGE_SIZE} offset ${(options.page - 1) * ADMIN_PAGE_SIZE}`);
-      const { total } = await tx.one<{ total: number }>(sql`select count(*) as total from public.articles where ${where}`);
+      const { total } = await tx.one<{ total: number }>(
+        sql`select count(*) as total from public.articles where ${where}`,
+      );
       return { total, items };
     });
   } catch (error) {
@@ -65,6 +68,8 @@ export interface EditorFile {
 }
 
 export interface EditorArticle {
+  pmid: string | null;
+  og_image_path: string | null;
   id: string;
   title: string;
   slug: string;
@@ -97,18 +102,20 @@ export async function getArticleForEditor(db: Db, id: string): Promise<EditorArt
     return await db.transaction(async (tx) => {
       const article = await tx.maybeOne<ArticleRow>(sql`
         select id, title, slug, subtitle, excerpt, content, status, featured, language, translation_of_article_id,
-               category_id, doi, external_url, seo_title, seo_description, cover_image_path, cover_image_alt,
+               category_id, doi, pmid, og_image_path, external_url, seo_title, seo_description, cover_image_path, cover_image_alt,
                reading_time, published_at, updated_at, deleted_at
         from public.articles where id = ${id}`);
       if (!article) return null;
 
       // One connection per transaction: statements run one after another.
-      const topics = await tx.many<{ topic_id: string }>(sql`select topic_id from public.article_topics where article_id = ${id}`);
+      const topics = await tx.many<{ topic_id: string }>(
+        sql`select topic_id from public.article_topics where article_id = ${id}`,
+      );
       const tags = await tx.many<{ name: string }>(sql`
         select t.name from public.article_tags atg join public.tags t on t.id = atg.tag_id
         where atg.article_id = ${id} order by t.name`);
       const references = await tx.many<ArticleReference>(sql`
-        select id, title, authors, journal, year, doi, url, pmid
+        select id, title, authors, journal, year, doi, url, pmid, volume, issue, pages
         from public.article_references where article_id = ${id} order by position, created_at`);
       const files = await tx.many<EditorFile>(sql`
         select id, original_filename, label, size_bytes, visibility, status, created_at
@@ -127,6 +134,8 @@ export async function getArticleForEditor(db: Db, id: string): Promise<EditorArt
         translation_of_article_id: article.translation_of_article_id,
         category_id: article.category_id,
         doi: article.doi,
+        pmid: article.pmid,
+        og_image_path: article.og_image_path,
         external_url: article.external_url,
         seo_title: article.seo_title,
         seo_description: article.seo_description,
@@ -157,7 +166,9 @@ export interface EditorOptions {
 export async function getEditorOptions(db: Db, excludeArticleId?: string): Promise<EditorOptions> {
   try {
     return await db.transaction(async (tx) => {
-      const topics = await tx.many<{ id: string; name: string }>(sql`select id, name from public.topics order by sort_order, name`);
+      const topics = await tx.many<{ id: string; name: string }>(
+        sql`select id, name from public.topics order by sort_order, name`,
+      );
       const categories = await tx.many<{ id: string; name: string }>(
         sql`select id, name from public.categories order by sort_order, name`,
       );

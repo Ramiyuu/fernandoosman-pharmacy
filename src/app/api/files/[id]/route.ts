@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { recordEvent } from '@/services/analytics.service';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { roleHasPermission } from '@/lib/auth/permissions';
@@ -45,10 +47,15 @@ export async function GET(request: NextRequest, context: RouteContext<'/api/file
   );
   const db = isStaff && auth ? adminDb(auth.userId) : publicDb();
 
-  let file: { storage_path: string; original_filename: string } | null;
+  let file: {
+    storage_path: string;
+    original_filename: string;
+    article_id: string | null;
+    project_id: string | null;
+  } | null;
   try {
     file = await db.maybeOne(sql`
-      select storage_path, original_filename from public.article_files where id = ${id} and status = 'ready'`);
+      select storage_path, original_filename, article_id, project_id from public.article_files where id = ${id} and status = 'ready'`);
   } catch (error) {
     log.error('File lookup failed', { error: describeError(error) });
     return NextResponse.json({ error: 'The file is temporarily unavailable.' }, { status: 503 });
@@ -61,5 +68,21 @@ export async function GET(request: NextRequest, context: RouteContext<'/api/file
     return NextResponse.json({ error: 'The file is temporarily unavailable.' }, { status: 503 });
   }
 
-  return NextResponse.redirect(signedUrl, { status: 302, headers: { 'Cache-Control': 'private, no-store' } });
+  const response = NextResponse.redirect(signedUrl, { status: 302, headers: { 'Cache-Control': 'private, no-store' } });
+  if (!isStaff && request.headers.get('dnt') !== '1') {
+    const existing = request.cookies.get('fo-file-session')?.value;
+    const session = existing && isUuid(existing) ? existing : randomUUID();
+    await recordEvent(download ? 'file_download' : 'file_view', id, session, {
+      articleId: file.article_id,
+      projectId: file.project_id,
+    });
+    response.cookies.set('fo-file-session', session, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: request.nextUrl.protocol === 'https:',
+      maxAge: 86400,
+      path: '/api',
+    });
+  }
+  return response;
 }

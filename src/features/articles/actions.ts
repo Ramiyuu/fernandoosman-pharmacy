@@ -27,7 +27,10 @@ export interface SavedArticle {
   reading_time: number;
 }
 
-export async function saveArticleAction(input: ArticleInput, options: { autosave?: boolean } = {}): Promise<ActionResult<SavedArticle>> {
+export async function saveArticleAction(
+  input: ArticleInput,
+  options: { autosave?: boolean } = {},
+): Promise<ActionResult<SavedArticle>> {
   const guard = await guardAction('articles:write');
   if (!guard.ok) return guard;
   const { db, userId } = guard.session;
@@ -49,7 +52,8 @@ export async function saveArticleAction(input: ArticleInput, options: { autosave
       const current = await db.maybeOne<{ status: ContentStatus; deleted_at: string | null }>(
         sql`select status, deleted_at from public.articles where id = ${data.id}`,
       );
-      if (!current || current.deleted_at) return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
+      if (!current || current.deleted_at)
+        return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
       wasPublished = current.status === 'published';
     } catch (error) {
       return failFromDbError('articles.current', error);
@@ -63,6 +67,9 @@ export async function saveArticleAction(input: ArticleInput, options: { autosave
   }
 
   const payload = {
+    pmid: data.pmid,
+    og_image_path: data.og_image_path,
+    published_at: data.published_at,
     title: data.title,
     slug: data.slug,
     subtitle: data.subtitle,
@@ -117,7 +124,10 @@ export async function saveArticleAction(input: ArticleInput, options: { autosave
   return ok({ ...result, reading_time: readingTime });
 }
 
-export async function setArticleStatusAction(input: { id: string; status: ContentStatus }): Promise<ActionResult<{ status: ContentStatus }>> {
+export async function setArticleStatusAction(input: {
+  id: string;
+  status: ContentStatus;
+}): Promise<ActionResult<{ status: ContentStatus }>> {
   const guard = await guardAction('articles:publish');
   if (!guard.ok) return guard;
   const { db, userId } = guard.session;
@@ -128,19 +138,28 @@ export async function setArticleStatusAction(input: { id: string; status: Conten
 
   let article: { title: string; excerpt: string; content_text: string; deleted_at: string | null } | null;
   try {
-    article = await db.maybeOne(sql`select title, excerpt, content_text, deleted_at from public.articles where id = ${id}`);
+    article = await db.maybeOne(
+      sql`select title, excerpt, content_text, deleted_at from public.articles where id = ${id}`,
+    );
   } catch (error) {
     return failFromDbError('articles.status.lookup', error);
   }
-  if (!article || article.deleted_at) return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
+  if (!article || article.deleted_at)
+    return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
 
   if (status === 'published') {
-    const blockers = publishBlockers({ title: article.title, excerpt: article.excerpt, contentText: article.content_text });
+    const blockers = publishBlockers({
+      title: article.title,
+      excerpt: article.excerpt,
+      contentText: article.content_text,
+    });
     if (blockers.length > 0) return fail(`Before publishing: ${blockers.join(' ')}`);
   }
 
   try {
-    const updated = await db.execute(sql`update public.articles set status = ${status}::public.content_status where id = ${id}`);
+    const updated = await db.execute(
+      sql`update public.articles set status = ${status}::public.content_status where id = ${id}`,
+    );
     if (updated === 0) return fail('You do not have permission to do this.', { code: 'FORBIDDEN' });
   } catch (error) {
     return failFromDbError('articles.status.update', error);
@@ -151,7 +170,10 @@ export async function setArticleStatusAction(input: { id: string; status: Conten
   await logActivity(db, userId, { action, entityType: 'article', entityId: id, summary: article.title });
 
   revalidatePublicContent();
-  return ok({ status }, status === 'published' ? 'Published.' : status === 'archived' ? 'Archived.' : 'Moved back to drafts.');
+  return ok(
+    { status },
+    status === 'published' ? 'Published.' : status === 'archived' ? 'Archived.' : 'Moved back to drafts.',
+  );
 }
 
 export async function deleteArticleAction(id: string): Promise<ActionResult> {
@@ -171,7 +193,12 @@ export async function deleteArticleAction(id: string): Promise<ActionResult> {
   }
   if (!deleted) return fail('This article no longer exists.', { code: 'NOT_FOUND' });
 
-  await logActivity(db, userId, { action: 'article_deleted', entityType: 'article', entityId: id, summary: deleted.title });
+  await logActivity(db, userId, {
+    action: 'article_deleted',
+    entityType: 'article',
+    entityId: id,
+    summary: deleted.title,
+  });
   revalidatePublicContent();
   return ok(undefined, 'Moved to trash.');
 }
@@ -194,7 +221,12 @@ export async function restoreArticleAction(id: string): Promise<ActionResult> {
   }
   if (!restored) return fail('This article is not in the trash.', { code: 'NOT_FOUND' });
 
-  await logActivity(db, userId, { action: 'article_restored', entityType: 'article', entityId: id, summary: restored.title });
+  await logActivity(db, userId, {
+    action: 'article_restored',
+    entityType: 'article',
+    entityId: id,
+    summary: restored.title,
+  });
   revalidatePublicContent();
   return ok(undefined, 'Restored as a draft.');
 }
@@ -210,7 +242,9 @@ export async function purgeArticleAction(id: string): Promise<ActionResult> {
   let files: Array<{ id: string; storage_path: string }>;
   try {
     article = await db.maybeOne(sql`select title, deleted_at from public.articles where id = ${id}`);
-    files = article ? await db.many(sql`select id, storage_path from public.article_files where article_id = ${id}`) : [];
+    files = article
+      ? await db.many(sql`select id, storage_path from public.article_files where article_id = ${id}`)
+      : [];
   } catch (error) {
     return failFromDbError('articles.purge.lookup', error);
   }

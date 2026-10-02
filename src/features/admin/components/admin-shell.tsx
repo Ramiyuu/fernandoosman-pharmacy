@@ -17,12 +17,17 @@ interface AdminShellProps {
   children: ReactNode;
 }
 
-function SidebarContent({ userName, userEmail, newMessages, onNavigate }: Omit<AdminShellProps, 'children'> & { onNavigate?: () => void }) {
+function SidebarContent({
+  userName,
+  userEmail,
+  newMessages,
+  onNavigate,
+}: Omit<AdminShellProps, 'children'> & { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center gap-2.5 border-b border-navy-800 px-5">
         <BrandIcon size={30} />
-        <span className="text-sm font-semibold tracking-[0.12em] text-white uppercase">Admin</span>
+        <span className="text-sm font-semibold tracking-tight text-white">FO / Studio</span>
       </div>
       <nav aria-label="Admin" className="flex-1 overflow-y-auto p-3">
         <AdminNav onNavigate={onNavigate} newMessages={newMessages} />
@@ -47,7 +52,10 @@ export function AdminShell({ children, ...user }: AdminShellProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="min-h-dvh bg-mist lg:grid lg:grid-cols-[15rem_1fr]">
-      <a href="#admin-main" className="sr-only z-50 rounded-md bg-white px-4 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
+      <a
+        href="#admin-main"
+        className="sr-only z-50 rounded-md bg-white px-4 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
         Skip to content
       </a>
       <aside className="sticky top-0 hidden h-dvh bg-navy-950 lg:block">
@@ -57,10 +65,13 @@ export function AdminShell({ children, ...user }: AdminShellProps) {
       <div className="flex h-14 items-center justify-between border-b border-rule bg-navy-950 px-4 lg:hidden">
         <span className="flex items-center gap-2.5">
           <BrandIcon size={28} />
-          <span className="text-sm font-semibold tracking-[0.12em] text-white uppercase">Admin</span>
+          <span className="text-sm font-semibold tracking-tight text-white">FO / Studio</span>
         </span>
         <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-          <DialogPrimitive.Trigger className="inline-flex size-10 items-center justify-center rounded-md text-white" aria-label="Open admin menu">
+          <DialogPrimitive.Trigger
+            className="inline-flex size-10 items-center justify-center rounded-md text-white"
+            aria-label="Open admin menu"
+          >
             <Menu className="size-5" aria-hidden="true" />
           </DialogPrimitive.Trigger>
           <DialogPrimitive.Portal>
@@ -68,7 +79,10 @@ export function AdminShell({ children, ...user }: AdminShellProps) {
             <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-64 bg-navy-950 focus:outline-none">
               <DialogPrimitive.Title className="sr-only">Admin menu</DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">Navigate the admin panel</DialogPrimitive.Description>
-              <DialogPrimitive.Close className="absolute top-3 right-3 rounded-md p-2 text-white" aria-label="Close menu">
+              <DialogPrimitive.Close
+                className="absolute top-3 right-3 rounded-md p-2 text-white"
+                aria-label="Close menu"
+              >
                 <X className="size-5" aria-hidden="true" />
               </DialogPrimitive.Close>
               <SidebarContent {...user} onNavigate={() => setOpen(false)} />

@@ -1,3 +1,5 @@
+import { VideoPlayer } from './video-player';
+import { safeVideoSource } from '@/lib/content/video';
 import { Info, Lightbulb, StickyNote, TriangleAlert } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -22,8 +24,18 @@ import 'katex/dist/katex.min.css';
 const CALLOUTS = {
   info: { label: 'Info', Icon: Info, className: 'border-azure-100 bg-azure-50', iconClass: 'text-azure-600' },
   note: { label: 'Note', Icon: StickyNote, className: 'border-rule bg-mist', iconClass: 'text-navy-700' },
-  warning: { label: 'Caution', Icon: TriangleAlert, className: 'border-warning-50 bg-warning-50', iconClass: 'text-warning-700' },
-  'key-point': { label: 'Key point', Icon: Lightbulb, className: 'border-teal-100 bg-teal-50', iconClass: 'text-teal-700' },
+  warning: {
+    label: 'Caution',
+    Icon: TriangleAlert,
+    className: 'border-warning-50 bg-warning-50',
+    iconClass: 'text-warning-700',
+  },
+  'key-point': {
+    label: 'Key point',
+    Icon: Lightbulb,
+    className: 'border-teal-100 bg-teal-50',
+    iconClass: 'text-teal-700',
+  },
 } as const;
 
 type CalloutKey = keyof typeof CALLOUTS;
@@ -79,7 +91,10 @@ function renderText(node: RichTextNode, key: string): ReactNode {
   const marks = node.marks ?? [];
   // Links wrap outermost so formatting stays inside the anchor.
   const ordered = [...marks].sort((a, b) => (a.type === 'link' ? 1 : 0) - (b.type === 'link' ? 1 : 0));
-  return ordered.reduce<ReactNode>((children, mark, index) => applyMark(mark, children, `${key}-m${index}`), node.text ?? '');
+  return ordered.reduce<ReactNode>(
+    (children, mark, index) => applyMark(mark, children, `${key}-m${index}`),
+    node.text ?? '',
+  );
 }
 
 function renderChildren(node: RichTextNode, keyPrefix: string): ReactNode {
@@ -128,7 +143,13 @@ function renderImage(node: RichTextNode, key: string): ReactNode {
         />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element -- dimensions unknown for legacy content
-        <img src={src} alt={alt} loading="lazy" decoding="async" className="h-auto w-full rounded-lg border border-rule" />
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className="h-auto w-full rounded-lg border border-rule"
+        />
       )}
       {caption ? <figcaption className="mt-2 font-sans text-sm text-muted">{caption}</figcaption> : null}
     </figure>
@@ -172,7 +193,10 @@ function renderCallout(node: RichTextNode, key: string): ReactNode {
   const config = CALLOUTS[(CALLOUT_VARIANTS as readonly string[]).includes(variant) ? (variant as CalloutKey) : 'info'];
   const { Icon } = config;
   return (
-    <aside key={key} className={cn('my-8 rounded-lg border px-5 py-4 font-sans text-base leading-relaxed', config.className)}>
+    <aside
+      key={key}
+      className={cn('my-8 rounded-lg border px-5 py-4 font-sans text-base leading-relaxed', config.className)}
+    >
       <p className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-ink">
         <Icon className={cn('size-4', config.iconClass)} aria-hidden="true" />
         {config.label}
@@ -222,6 +246,18 @@ function renderNode(node: RichTextNode, key: string): ReactNode {
       return <hr key={key} />;
     case 'hardBreak':
       return <br key={key} />;
+    case 'footnote':
+      return (
+        <sup key={key}>
+          <a href={`#note-${stringAttr(node, 'id')}`} aria-label={`Footnote: ${stringAttr(node, 'text')}`}>
+            †
+          </a>
+        </sup>
+      );
+    case 'video': {
+      const src = safeVideoSource(stringAttr(node, 'src'));
+      return src ? <VideoPlayer key={key} src={src} title={stringAttr(node, 'title') || 'Video'} /> : null;
+    }
     case 'image':
       return renderImage(node, key);
     case 'table':
@@ -240,5 +276,29 @@ function renderNode(node: RichTextNode, key: string): ReactNode {
 }
 
 export function RichContent({ doc, className }: { doc: RichTextDoc; className?: string }) {
-  return <div className={cn('article-body', className)}>{doc.content.map((node, index) => renderNode(node, `n${index}`))}</div>;
+  const notes = new Map<string, string>();
+  const collect = (nodes: RichTextNode[]) => {
+    for (const node of nodes) {
+      if (node.type === 'footnote') notes.set(stringAttr(node, 'id'), stringAttr(node, 'text'));
+      if (node.content) collect(node.content);
+    }
+  };
+  collect(doc.content);
+  return (
+    <div className={cn('article-body', className)}>
+      {doc.content.map((node, index) => renderNode(node, `n${index}`))}
+      {notes.size ? (
+        <section aria-label="Footnotes" className="mt-12 border-t border-rule pt-5">
+          <h2>Footnotes</h2>
+          <ol>
+            {[...notes].map(([id, text]) => (
+              <li key={id} id={`note-${id}`} className="scroll-mt-24">
+                {text}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+    </div>
+  );
 }

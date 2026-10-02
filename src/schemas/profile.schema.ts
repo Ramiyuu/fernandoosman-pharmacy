@@ -5,6 +5,10 @@ import { imagePathSchema, optionalUrl } from './common';
 const shortText = (max: number) => z.string().trim().max(max, `Use at most ${max} characters.`);
 
 export const siteProfileSchema = z.object({
+  expected_graduation: shortText(40).optional().default(''),
+  current_studies: z.array(shortText(60)).max(20).optional().default([]),
+  scientific_interests: z.array(shortText(60)).max(20).optional().default([]),
+  website_url: optionalUrl.optional(),
   full_name: shortText(120).min(2, 'Add a name.'),
   headline: shortText(120),
   focus_areas: z.array(shortText(60).min(1)).max(6),
@@ -32,6 +36,12 @@ export const siteProfileSchema = z.object({
   education: z
     .array(
       z.object({
+        visible: z.boolean().optional().default(true),
+        order: z.coerce.number().int().min(0).max(1000).optional().default(0),
+        current: z.boolean().optional().default(false),
+        logo: imagePathSchema.optional(),
+        field: shortText(160).optional(),
+        activities: shortText(1000).optional(),
         institution: shortText(160).min(1, 'Add the institution.'),
         degree: shortText(160),
         start: shortText(40),
@@ -43,6 +53,13 @@ export const siteProfileSchema = z.object({
   experience: z
     .array(
       z.object({
+        visible: z.boolean().optional().default(true),
+        order: z.coerce.number().int().min(0).max(1000).optional().default(0),
+        current: z.boolean().optional().default(false),
+        logo: imagePathSchema.optional(),
+        employment_type: shortText(80).optional(),
+        location: shortText(120).optional(),
+        skills: shortText(600).optional(),
         organization: shortText(160).min(1, 'Add the organisation.'),
         role: shortText(160),
         start: shortText(40),
@@ -55,10 +72,25 @@ export const siteProfileSchema = z.object({
   certifications: z
     .array(
       z.object({
+        visible: z.boolean().optional().default(true),
+        issue_date: shortText(40).optional(),
+        expiration_date: shortText(40).optional(),
+        credential_id: shortText(160).optional(),
+        description: shortText(1000).optional(),
+        skills: shortText(600).optional(),
+        image_path: imagePathSchema.optional(),
+        pdf_file_id: z.union([z.uuid(), z.literal(''), z.null()]).optional(),
         name: shortText(200).min(1),
         issuer: shortText(160),
         year: shortText(10),
-        url: z.union([z.literal(''), z.string().trim().regex(/^https?:\/\/[^\s<>"]+$/i, 'Enter a full URL.').max(2048)]),
+        url: z.union([
+          z.literal(''),
+          z
+            .string()
+            .trim()
+            .regex(/^https?:\/\/[^\s<>"]+$/i, 'Enter a full URL.')
+            .max(2048),
+        ]),
       }),
     )
     .max(30),

@@ -1,3 +1,4 @@
+import { boundedFormData } from '@/lib/security/body';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
@@ -24,6 +25,7 @@ const log = createLogger('pdf-upload');
 const targetSchema = z.discriminatedUnion('target', [
   z.object({ target: z.literal('article'), articleId: uuidSchema }),
   z.object({ target: z.literal('cv') }),
+  z.object({ target: z.literal('resource'), projectId: uuidSchema.optional() }),
 ]);
 
 const ACTIVE_CONTENT_LABELS: Record<string, string> = {
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
 
   let file: File;
   try {
-    const value = (await request.formData()).get('file');
+    const value = (await boundedFormData(request, PDF_UPLOAD.maxBytes + 64 * 1024)).get('file');
     if (!(value instanceof File)) return error('No file was sent.', 400);
     file = value;
   } catch {
@@ -78,10 +80,13 @@ export async function POST(request: NextRequest) {
   }
 
   const displayName = sanitizeDisplayFilename(file.name);
-  if (hasBlockedExtension(file.name) || getExtension(displayName) !== 'pdf') return error('Only .pdf files are accepted.', 415);
-  if (!(PDF_UPLOAD.mimeTypes as readonly string[]).includes(file.type)) return error('Only PDF files are accepted.', 415);
+  if (hasBlockedExtension(file.name) || getExtension(displayName) !== 'pdf')
+    return error('Only .pdf files are accepted.', 415);
+  if (!(PDF_UPLOAD.mimeTypes as readonly string[]).includes(file.type))
+    return error('Only PDF files are accepted.', 415);
   if (file.size === 0) return error('The file is empty.', 400);
-  if (file.size > PDF_UPLOAD.maxBytes) return error(`The file is larger than ${formatBytes(PDF_UPLOAD.maxBytes)}.`, 413);
+  if (file.size > PDF_UPLOAD.maxBytes)
+    return error(`The file is larger than ${formatBytes(PDF_UPLOAD.maxBytes)}.`, 413);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!isPdf(bytes)) {
@@ -94,14 +99,22 @@ export async function POST(request: NextRequest) {
   const activeContent = findPdfActiveContent(bytes);
   if (activeContent) {
     log.warn('Rejected upload: active PDF content', { feature: activeContent });
-    return error(`This PDF contains ${ACTIVE_CONTENT_LABELS[activeContent] ?? 'active content'}, which is not allowed. Print or export it to a new PDF and retry.`, 415);
+    return error(
+      `This PDF contains ${ACTIVE_CONTENT_LABELS[activeContent] ?? 'active content'}, which is not allowed. Print or export it to a new PDF and retry.`,
+      415,
+    );
   }
 
+  const projectId = target.data.target === 'resource' ? (target.data.projectId ?? null) : null;
+  if (projectId && !(await db.maybeOne(sql`select id from public.projects where id = ${projectId}`)))
+    return error('Project not found.', 404);
   const isCv = target.data.target === 'cv';
   const articleId = target.data.target === 'article' ? target.data.articleId : null;
   if (articleId) {
     try {
-      const article = await db.maybeOne(sql`select id from public.articles where id = ${articleId} and deleted_at is null`);
+      const article = await db.maybeOne(
+        sql`select id from public.articles where id = ${articleId} and deleted_at is null`,
+      );
       if (!article) return error('Save the article before attaching files.', 404);
     } catch (lookupError) {
       log.error('Article lookup failed', { error: describeError(lookupError) });
@@ -109,7 +122,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { internalName, path } = createPdfObjectPath(articleId ? { kind: 'article', articleId } : { kind: 'cv' });
+  const { internalName, path } = createPdfObjectPath(
+    articleId ? { kind: 'article', articleId } : { kind: isCv ? 'cv' : 'resource' },
+  );
   if (!(await storeDocument(path, bytes))) return error('Storage is not available right now. Try again later.', 502);
 
   let saved: UploadedFile;
@@ -117,13 +132,15 @@ export async function POST(request: NextRequest) {
     saved = await db.transaction(async (tx) => {
       const row = await tx.one<UploadedFile>(sql`
         insert into public.article_files
-          (article_id, kind, original_filename, internal_name, storage_path, mime_type, size_bytes, status, visibility, uploaded_by)
+          (article_id, project_id, kind, original_filename, internal_name, storage_path, mime_type, size_bytes, status, visibility, uploaded_by)
         values
-          (${articleId}, ${isCv ? 'cv' : 'article_attachment'}::public.file_kind, ${displayName}, ${internalName}, ${path},
-           'application/pdf', ${bytes.byteLength}, 'ready', ${isCv ? 'public' : 'private'}::public.file_visibility, ${userId})
+          (${articleId}, ${projectId}, ${isCv ? 'cv' : articleId ? 'article_attachment' : 'resource'}::public.file_kind, ${displayName}, ${internalName}, ${path},
+           'application/pdf', ${bytes.byteLength}, 'ready', ${isCv || target.data.target === 'resource' ? 'public' : 'private'}::public.file_visibility, ${userId})
         returning id, original_filename, label, size_bytes, visibility, status, created_at`);
       if (isCv) {
-        await tx.execute(sql`update public.site_profile set cv_file_id = ${row.id}, updated_by = ${userId} where id = 1`);
+        await tx.execute(
+          sql`update public.site_profile set cv_file_id = ${row.id}, updated_by = ${userId} where id = 1`,
+        );
       }
       return row;
     });
@@ -134,7 +151,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (isCv) {
-    await logActivity(db, userId, { action: 'cv_updated', entityType: 'file', entityId: saved.id, summary: displayName });
+    await logActivity(db, userId, {
+      action: 'cv_updated',
+      entityType: 'file',
+      entityId: saved.id,
+      summary: displayName,
+    });
     revalidatePublicContent();
   } else {
     await logActivity(db, userId, {

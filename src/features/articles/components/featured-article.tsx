@@ -8,7 +8,7 @@ import { CoverImage } from './cover-image';
 
 export function FeaturedArticle({ article, fallbackAuthor }: { article: ArticleCard; fallbackAuthor: string }) {
   return (
-    <article className="grid items-center gap-8 rounded-xl border border-rule bg-white p-4 sm:p-6 lg:grid-cols-[1.15fr_1fr] lg:gap-12 lg:p-8">
+    <article className="featured-publication grid items-center gap-8 rounded-xl border border-rule bg-azure-50 p-4 sm:p-6 lg:grid-cols-[1.15fr_1fr] lg:gap-12 lg:p-8">
       <CoverImage
         bucket="article-images"
         path={article.cover_image_path}
@@ -22,7 +22,10 @@ export function FeaturedArticle({ article, fallbackAuthor }: { article: ArticleC
           Featured{article.category ? ` ${article.category.name.toLowerCase()}` : ' article'}
         </p>
         <h3 className="mt-2 text-2xl leading-tight font-semibold tracking-tight text-ink sm:text-3xl">
-          <Link href={`/articles/${article.slug}`} className="hover:underline hover:decoration-teal-500 hover:decoration-2 hover:underline-offset-4">
+          <Link
+            href={`/articles/${article.slug}`}
+            className="hover:underline hover:decoration-teal-500 hover:decoration-2 hover:underline-offset-4"
+          >
             {article.title}
           </Link>
         </h3>

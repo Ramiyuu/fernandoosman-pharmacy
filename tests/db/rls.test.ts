@@ -37,7 +37,9 @@ describe('migrations and seed', () => {
   });
 
   it('creates profiles without a role for new auth users', async () => {
-    const [profile] = await rows<{ role: string | null }>(db, 'select role from public.profiles where id = $1', [noRole.id]);
+    const [profile] = await rows<{ role: string | null }>(db, 'select role from public.profiles where id = $1', [
+      noRole.id,
+    ]);
     expect(profile.role).toBeNull();
   });
 
@@ -68,7 +70,10 @@ describe('migrations and seed', () => {
 
 describe('authentication data', () => {
   it('is unreachable for visitors and admins (content roles)', async () => {
-    for (const [role, user] of [['web_anon', null], ['web_admin', admin]] as const) {
+    for (const [role, user] of [
+      ['web_anon', null],
+      ['web_admin', admin],
+    ] as const) {
       await actAs(db, role, user, async () => {
         await expectDenied(db.query('select * from auth."user"'));
         await expectDenied(db.query('select * from auth.account'));
@@ -111,7 +116,9 @@ describe('the website login role', () => {
     try {
       await expectDenied(db.query('create table public.evil (id int)'));
       await expect(db.query('drop table public.articles')).rejects.toThrow(/must be owner/i);
-      await expect(db.query('alter table public.articles disable row level security')).rejects.toThrow(/must be owner/i);
+      await expect(db.query('alter table public.articles disable row level security')).rejects.toThrow(
+        /must be owner/i,
+      );
       await expectDenied(db.query('select * from private.rate_limits'));
     } finally {
       await db.exec('reset role');
@@ -125,7 +132,9 @@ describe('contact messages', () => {
       await db.query("insert into public.contacts (name, email, message) values ('Ana', 'ana@example.com', 'Olá')");
       await expectDenied(db.query('select * from public.contacts'));
       await expect(
-        db.query("insert into public.contacts (name, email, message, status) values ('A', 'a@example.com', 'x', 'archived')"),
+        db.query(
+          "insert into public.contacts (name, email, message, status) values ('A', 'a@example.com', 'x', 'archived')",
+        ),
       ).rejects.toThrow(/row-level security/i);
     });
   });
@@ -150,10 +159,14 @@ describe('rate limiting', () => {
     const results = await actAs(db, 'web_server', null, async () => {
       const outcomes: Array<{ allowed: boolean; retry_after_seconds: number }> = [];
       for (let i = 0; i < 4; i += 1) {
-        outcomes.push((await rows<{ allowed: boolean; retry_after_seconds: number }>(
-          db,
-          "select * from private.consume_rate_limit('test:key', 3, 600)",
-        ))[0]);
+        outcomes.push(
+          (
+            await rows<{ allowed: boolean; retry_after_seconds: number }>(
+              db,
+              "select * from private.consume_rate_limit('test:key', 3, 600)",
+            )
+          )[0],
+        );
       }
       return outcomes;
     });
@@ -175,8 +188,10 @@ describe('anonymous visitors', () => {
   it('cannot read drafts through RPCs either', async () => {
     const [draft] = await rows<{ id: string }>(db, 'select id from public.articles where slug = $1', [DRAFT_SLUG]);
     const result = await actAs(db, 'web_anon', null, async () => ({
-      bySlug: (await rows<{ value: unknown }>(db, 'select public.get_article_by_slug($1) as value', [DRAFT_SLUG]))[0].value,
-      byId: (await rows<{ value: unknown }>(db, 'select public.article_detail_json($1, true) as value', [draft.id]))[0].value,
+      bySlug: (await rows<{ value: unknown }>(db, 'select public.get_article_by_slug($1) as value', [DRAFT_SLUG]))[0]
+        .value,
+      byId: (await rows<{ value: unknown }>(db, 'select public.article_detail_json($1, true) as value', [draft.id]))[0]
+        .value,
       card: (await rows<{ value: unknown }>(db, 'select public.article_card_json($1) as value', [draft.id]))[0].value,
     }));
     expect(result).toEqual({ bySlug: null, byId: null, card: null });
@@ -219,7 +234,7 @@ describe('anonymous visitors', () => {
       paper_reviews: 0,
       data_projects: 4,
       references_reviewed: 12,
-      current_semester: 6,
+      current_semester: null, // New installs use a truthful blank profile; optional seed never overwrites it.
     });
     expect(metrics.topics_covered).toBe(5);
     expect((metrics.latest_publication as { slug: string }).slug).toBe('how-to-read-a-clinical-research-paper');
@@ -256,7 +271,9 @@ describe('anonymous visitors', () => {
   });
 
   it('can only read public settings', async () => {
-    const result = await actAs(db, 'web_anon', null, () => rows<{ key: string }>(db, 'select key from public.settings'));
+    const result = await actAs(db, 'web_anon', null, () =>
+      rows<{ key: string }>(db, 'select key from public.settings'),
+    );
     await db.query("insert into public.settings (key, value, is_public) values ('private.test', '{}'::jsonb, false)");
     const after = await actAs(db, 'web_anon', null, () => rows<{ key: string }>(db, 'select key from public.settings'));
     expect(after.map((row) => row.key)).toEqual(result.map((row) => row.key));
@@ -283,7 +300,9 @@ describe('signed-in users without a role', () => {
       const result = await db.query("update public.profiles set role = 'admin' where id = $1", [noRole.id]);
       expect(result.affectedRows).toBe(0);
     });
-    const [profile] = await rows<{ role: string | null }>(db, 'select role from public.profiles where id = $1', [noRole.id]);
+    const [profile] = await rows<{ role: string | null }>(db, 'select role from public.profiles where id = $1', [
+      noRole.id,
+    ]);
     expect(profile.role).toBeNull();
   });
 });
@@ -370,15 +389,21 @@ describe('admins', () => {
 
   it('cannot demote the last active admin', async () => {
     await expect(
-      actAs(db, 'web_admin', admin, () => db.query("update public.profiles set role = 'editor' where id = $1", [admin.id])),
+      actAs(db, 'web_admin', admin, () =>
+        db.query("update public.profiles set role = 'editor' where id = $1", [admin.id]),
+      ),
     ).rejects.toThrow(/At least one active admin/);
   });
 
   it('activity log is append-only and bound to the actor', async () => {
     await actAs(db, 'web_admin', admin, async () => {
-      await db.query("insert into public.activity_logs (actor_id, action, entity_type) values ($1, 'login', 'auth')", [admin.id]);
+      await db.query("insert into public.activity_logs (actor_id, action, entity_type) values ($1, 'login', 'auth')", [
+        admin.id,
+      ]);
       await expect(
-        db.query("insert into public.activity_logs (actor_id, action, entity_type) values ($1, 'login', 'auth')", [editor.id]),
+        db.query("insert into public.activity_logs (actor_id, action, entity_type) values ($1, 'login', 'auth')", [
+          editor.id,
+        ]),
       ).rejects.toThrow(/row-level security/i);
       await expectDenied(db.query("update public.activity_logs set summary = 'tampered'"));
       await expectDenied(db.query('delete from public.activity_logs'));
@@ -407,7 +432,9 @@ describe('article files', () => {
     const publicPending = await insertFile(article.id, 'public', 'pending');
     const publicOnDraft = await insertFile(draft.id, 'public', 'ready');
 
-    const visible = await actAs(db, 'web_anon', null, () => rows<{ id: string }>(db, 'select id from public.article_files'));
+    const visible = await actAs(db, 'web_anon', null, () =>
+      rows<{ id: string }>(db, 'select id from public.article_files'),
+    );
     expect(visible.map((row) => row.id)).toEqual([publicReady]);
     expect(visible.map((row) => row.id)).not.toContain(privateReady);
     expect(visible.map((row) => row.id)).not.toContain(publicPending);
@@ -460,11 +487,11 @@ describe('editors (prepared role)', () => {
     await actAs(db, 'web_admin', editor, async () => {
       const [{ saved }] = await rows<{ saved: { id: string } }>(
         db,
-        "select public.admin_save_article(null, '{\"title\":\"Editor draft\"}'::jsonb) as saved",
+        'select public.admin_save_article(null, \'{"title":"Editor draft"}\'::jsonb) as saved',
       );
-      await expect(db.query("update public.articles set status = 'published' where id = $1", [saved.id])).rejects.toThrow(
-        /row-level security/i,
-      );
+      await expect(
+        db.query("update public.articles set status = 'published' where id = $1", [saved.id]),
+      ).rejects.toThrow(/row-level security/i);
       const deleted = await db.query('delete from public.articles where id = $1', [saved.id]);
       expect(deleted.affectedRows).toBe(0);
 

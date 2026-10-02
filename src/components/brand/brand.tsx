@@ -13,7 +13,15 @@ import { cn } from '@/utils/cn';
 const LOGO_RATIO = 269 / 160;
 
 /** The FO mark on a light background (transparent PNG). */
-export function LogoMark({ height = 32, className, priority = false }: { height?: number; className?: string; priority?: boolean }) {
+export function LogoMark({
+  height = 32,
+  className,
+  priority = false,
+}: {
+  height?: number;
+  className?: string;
+  priority?: boolean;
+}) {
   return (
     <Image
       src="/brand/fo-logo.png"
@@ -29,7 +37,16 @@ export function LogoMark({ height = 32, className, priority = false }: { height?
 
 /** The app icon (FO on a navy rounded square), for dark surfaces and small sizes. */
 export function BrandIcon({ size = 32, className }: { size?: number; className?: string }) {
-  return <Image src="/brand/fo-icon.png" alt="" width={size} height={size} unoptimized className={cn('shrink-0', className)} />;
+  return (
+    <Image
+      src="/brand/fo-icon.png"
+      alt=""
+      width={size}
+      height={size}
+      unoptimized
+      className={cn('shrink-0', className)}
+    />
+  );
 }
 
 /**
@@ -73,7 +90,7 @@ export function Tagline({ items, className }: { items: string[]; className?: str
               </span>{' '}
             </>
           ) : null}
-          <span className="whitespace-nowrap">{item}</span>
+          <span className="inline-block max-w-full">{item}</span>
         </Fragment>
       ))}
     </p>

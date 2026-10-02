@@ -47,7 +47,10 @@ function objectUrl(key: string): URL {
 const TIMEOUT = { metadata: 15_000, transfer: 120_000 } as const;
 
 export class StorageError extends Error {
-  constructor(operation: string, readonly status?: number) {
+  constructor(
+    operation: string,
+    readonly status?: number,
+  ) {
     super(`Storage ${operation} failed${status ? ` (${status})` : ''}`);
     this.name = 'StorageError';
   }
@@ -71,14 +74,20 @@ export async function putObject(
   if (!response.ok) throw new StorageError('upload', response.status);
 }
 
-export async function headObject(key: string): Promise<{ size: number; contentType: string | null } | null> {
+export async function headObject(
+  key: string,
+): Promise<{ size: number; contentType: string | null; etag: string | null } | null> {
   const response = await r2().client.fetch(objectUrl(key), {
     method: 'HEAD',
     signal: AbortSignal.timeout(TIMEOUT.metadata),
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new StorageError('head', response.status);
-  return { size: Number(response.headers.get('content-length') ?? 0), contentType: response.headers.get('content-type') };
+  return {
+    size: Number(response.headers.get('content-length') ?? 0),
+    contentType: response.headers.get('content-type'),
+    etag: response.headers.get('etag'),
+  };
 }
 
 /** Streams an object (used to serve images). Returns null when it does not exist. */
@@ -104,7 +113,12 @@ export async function deleteObject(key: string): Promise<void> {
 
 /** RFC 6266 / 5987 Content-Disposition with an ASCII fallback for old clients. */
 export function contentDisposition(type: 'inline' | 'attachment', filename: string): string {
-  const fallback = filename.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '').trim() || 'document.pdf';
+  const fallback =
+    filename
+      .normalize('NFKD')
+      .replace(/[^\x20-\x7e]/g, '')
+      .replace(/["\\]/g, '')
+      .trim() || 'document.pdf';
   return `${type}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
@@ -124,4 +138,49 @@ export async function presignGetUrl(
   url.searchParams.set('response-cache-control', 'private, no-store');
   const signed = await r2().client.sign(new Request(url, { method: 'GET' }), { aws: { signQuery: true } });
   return signed.url;
+}
+
+/** PUT URLs are only valid for quarantine keys; never for published objects. */
+export async function presignPutUrl(key: string, contentType: string): Promise<string> {
+  if (!key.startsWith('pending/')) throw new Error('Uploads require quarantine');
+  const url = objectUrl(key);
+  url.searchParams.set('X-Amz-Expires', '300');
+  return (
+    await r2().client.sign(new Request(url, { method: 'PUT', headers: { 'content-type': contentType } }), {
+      aws: { signQuery: true },
+    })
+  ).url;
+}
+export async function readObjectHead(key: string, etag: string): Promise<Uint8Array> {
+  const response = await r2().client.fetch(objectUrl(key), {
+    headers: { Range: 'bytes=0-4095', 'If-Match': etag },
+    signal: AbortSignal.timeout(TIMEOUT.metadata),
+  });
+  if (!response.ok || !response.body) throw new StorageError('video validation', response.status);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let count = 0;
+  while (count < 4096) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const chunk = value.subarray(0, 4096 - count);
+    chunks.push(chunk);
+    count += chunk.length;
+  }
+  await reader.cancel();
+  const result = new Uint8Array(count);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+export async function copyObject(source: string, destination: string, etag: string): Promise<void> {
+  const response = await r2().client.fetch(objectUrl(destination), {
+    method: 'PUT',
+    headers: { 'x-amz-copy-source': `/${r2().bucket}/${source}`, 'x-amz-copy-source-if-match': etag },
+    signal: AbortSignal.timeout(TIMEOUT.transfer),
+  });
+  if (!response.ok || (await response.text()).includes('<Error>')) throw new StorageError('copy', response.status);
 }

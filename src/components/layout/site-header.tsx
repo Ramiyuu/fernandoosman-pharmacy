@@ -9,8 +9,8 @@ import { NavLinks } from './nav-links';
 
 export function SiteHeader({ siteName }: { siteName: string }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-rule bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <Container className="flex h-16 items-center justify-between gap-4">
+    <header className="site-header sticky top-0 z-40 border-b border-rule bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+      <Container className="flex h-20 items-center justify-between gap-4">
         <Link href="/" className="flex min-w-0 items-center gap-3 rounded-md" aria-label={`${siteName}, home`}>
           <LogoMark height={28} priority />
           <Wordmark name={siteName} className="truncate text-[0.6875rem] sm:text-[0.8125rem]" />

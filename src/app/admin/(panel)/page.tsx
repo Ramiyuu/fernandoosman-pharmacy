@@ -16,6 +16,8 @@ import { formatBytes, formatDate, formatDateTime } from '@/utils/format';
 export const metadata: Metadata = { title: 'Dashboard' };
 
 const ACTION_LABELS: Record<ActivityAction, string> = {
+  video_uploaded: 'Uploaded video',
+  video_deleted: 'Deleted video',
   login: 'Signed in',
   logout: 'Signed out',
   article_created: 'Created article',
@@ -62,7 +64,10 @@ function Stat({ label, value, href }: { label: string; value: string | number; h
 
 export default async function DashboardPage() {
   const session = await requireAdminPage();
-  const [{ stats, recentArticles, activity }, profile] = await Promise.all([getDashboard(session.db), getSiteProfile()]);
+  const [{ stats, recentArticles, activity }, profile] = await Promise.all([
+    getDashboard(session.db),
+    getSiteProfile(),
+  ]);
   const photo = publicImageUrl('profile-images', profile?.photo_path);
   const semester = profile ? semesterLabel(profile) : null;
   const totalStorage = stats.storage.documents_bytes + stats.storage.images_bytes;
@@ -116,11 +121,18 @@ export default async function DashboardPage() {
         <Panel title="Last publication">
           {stats.last_publication ? (
             <div>
-              <Link href={`/admin/articles/${stats.last_publication.id}`} className="font-medium text-ink hover:underline">
+              <Link
+                href={`/admin/articles/${stats.last_publication.id}`}
+                className="font-medium text-ink hover:underline"
+              >
                 {stats.last_publication.title}
               </Link>
               <p className="mt-1 text-sm text-muted">{formatDate(stats.last_publication.published_at)}</p>
-              <Link href={`/articles/${stats.last_publication.slug}`} target="_blank" className="mt-3 inline-block text-sm text-azure-700 hover:underline">
+              <Link
+                href={`/articles/${stats.last_publication.slug}`}
+                target="_blank"
+                className="mt-3 inline-block text-sm text-azure-700 hover:underline"
+              >
                 View on site
               </Link>
             </div>
@@ -131,7 +143,11 @@ export default async function DashboardPage() {
 
         <Panel title="Storage usage" description="Ready files tracked by the database">
           <p className="text-3xl font-semibold text-ink tabular">{formatBytes(totalStorage)}</p>
-          <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-mist" role="img" aria-label={`Documents ${Math.round(documentsShare)}%, images ${Math.round(100 - documentsShare)}%`}>
+          <div
+            className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-mist"
+            role="img"
+            aria-label={`Documents ${Math.round(documentsShare)}%, images ${Math.round(100 - documentsShare)}%`}
+          >
             <span className="bg-navy-700" style={{ width: `${documentsShare}%` }} />
             <span className="bg-teal-500" style={{ width: `${totalStorage > 0 ? 100 - documentsShare : 0}%` }} />
           </div>
@@ -157,12 +173,22 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Panel title="Recently edited articles" actions={<Link href="/admin/articles" className="text-sm text-azure-700 hover:underline">All articles</Link>}>
+        <Panel
+          title="Recently edited articles"
+          actions={
+            <Link href="/admin/articles" className="text-sm text-azure-700 hover:underline">
+              All articles
+            </Link>
+          }
+        >
           {recentArticles.length > 0 ? (
             <ul className="-my-2 divide-y divide-rule">
               {recentArticles.map((article) => (
                 <li key={article.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <Link href={`/admin/articles/${article.id}`} className="min-w-0 truncate text-sm font-medium text-ink hover:underline">
+                  <Link
+                    href={`/admin/articles/${article.id}`}
+                    className="min-w-0 truncate text-sm font-medium text-ink hover:underline"
+                  >
                     {article.title || 'Untitled draft'}
                   </Link>
                   <div className="flex shrink-0 items-center gap-3">

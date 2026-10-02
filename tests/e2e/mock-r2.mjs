@@ -49,7 +49,11 @@ async function verify(request, url, body, credentials) {
   if (Math.abs(Date.now() - amzDateToMs(datetime)) > 15 * 60_000) return 'clock skew';
 
   const contentHash = request.headers['x-amz-content-sha256'];
-  if (contentHash && contentHash !== 'UNSIGNED-PAYLOAD' && contentHash !== createHash('sha256').update(body).digest('hex')) {
+  if (
+    contentHash &&
+    contentHash !== 'UNSIGNED-PAYLOAD' &&
+    contentHash !== createHash('sha256').update(body).digest('hex')
+  ) {
     return 'body hash mismatch';
   }
   const headers = {};
@@ -81,17 +85,33 @@ export function startMockR2({ port, credentials, log = () => {} }) {
     const url = new URL(request.url, `http://127.0.0.1:${port}`);
     const done = (status, payload = '', headers = {}) => {
       log(`${request.method} ${url.pathname} → ${status}`);
-      response.writeHead(status, headers);
+      response.writeHead(status, {
+        'access-control-allow-origin': 'http://localhost:3000',
+        'access-control-allow-methods': 'GET, PUT, HEAD',
+        'access-control-allow-headers': 'content-type',
+        ...headers,
+      });
       response.end(payload);
     };
 
+    if (request.method === 'OPTIONS') return done(204);
     const failure = await verify(request, url, body, credentials);
-    if (failure) return done(403, `<Error><Code>AccessDenied</Code><Message>${failure}</Message></Error>`, { 'content-type': 'application/xml' });
+    if (failure)
+      return done(403, `<Error><Code>AccessDenied</Code><Message>${failure}</Message></Error>`, {
+        'content-type': 'application/xml',
+      });
 
     const [, bucket, ...rest] = url.pathname.split('/');
     const key = decodeURIComponent(rest.join('/'));
     if (bucket !== credentials.bucket || !key) return done(404, '<Error><Code>NoSuchBucket</Code></Error>');
 
+    if (request.method === 'PUT' && request.headers['x-amz-copy-source']) {
+      const source = objects.get(request.headers['x-amz-copy-source'].replace(`/${bucket}/`, ''));
+      if (!source) return done(404);
+      if (request.headers['x-amz-copy-source-if-match'] !== source.etag) return done(412);
+      objects.set(key, { ...source });
+      return done(200, `<CopyObjectResult><ETag>${source.etag}</ETag></CopyObjectResult>`);
+    }
     if (request.method === 'PUT') {
       const etag = `"${createHash('md5').update(body).digest('hex')}"`;
       objects.set(key, {
@@ -117,8 +137,11 @@ export function startMockR2({ port, credentials, log = () => {} }) {
       ...(url.searchParams.get('response-content-disposition')
         ? { 'content-disposition': url.searchParams.get('response-content-disposition') }
         : {}),
-      ...(url.searchParams.get('response-cache-control') ? { 'cache-control': url.searchParams.get('response-cache-control') } : {}),
+      ...(url.searchParams.get('response-cache-control')
+        ? { 'cache-control': url.searchParams.get('response-cache-control') }
+        : {}),
     };
+    if (request.headers['if-match'] && request.headers['if-match'] !== object.etag) return done(412);
     if (request.method === 'HEAD') return done(200, '', { ...headers, 'content-length': object.body.length });
     if (request.method !== 'GET') return done(405);
     if (request.headers['if-none-match'] === object.etag) return done(304, '', headers);
@@ -128,7 +151,10 @@ export function startMockR2({ port, credentials, log = () => {} }) {
       const size = object.body.length;
       const start = range[1] === '' ? Math.max(0, size - Number(range[2])) : Number(range[1]);
       const end = range[1] === '' || range[2] === '' ? size - 1 : Math.min(Number(range[2]), size - 1);
-      return done(206, object.body.subarray(start, end + 1), { ...headers, 'content-range': `bytes ${start}-${end}/${size}` });
+      return done(206, object.body.subarray(start, end + 1), {
+        ...headers,
+        'content-range': `bytes ${start}-${end}/${size}`,
+      });
     }
     return done(200, object.body, { ...headers, 'content-length': object.body.length });
   });

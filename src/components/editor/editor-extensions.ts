@@ -9,6 +9,8 @@ import StarterKit from '@tiptap/starter-kit';
 import { safeHref } from '@/utils/url';
 
 import { Callout } from './extensions/callout';
+import { Footnote } from './extensions/footnote';
+import { Video } from './extensions/video';
 import { Citation } from './extensions/citation';
 
 interface ExtensionOptions {
@@ -44,6 +46,8 @@ export function createEditorExtensions({ placeholder, onEditMath }: ExtensionOpt
     }),
     Callout,
     Citation,
+    Video,
+    Footnote,
     Placeholder.configure({ placeholder }),
     CharacterCount,
   ];

@@ -1,3 +1,8 @@
+import { publicDb } from '@/lib/db/client';
+import { sql } from '@/lib/db/sql';
+import { AttachmentsList } from '@/features/articles/components/attachments-list';
+import type { ArticleAttachment } from '@/types/content';
+import { ViewTracker } from '@/components/content/view-tracker';
 import { ExternalLink } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
@@ -37,6 +42,9 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
   const { slug } = await params;
   const project = await loadProject(slug);
   if (!project) notFound();
+  const files = await publicDb().many<ArticleAttachment>(
+    sql`select id, original_filename, label, size_bytes, visibility from public.article_files where project_id = ${project.id} and status = 'ready'`,
+  );
 
   const profile = await getSiteProfile();
   const repository = safeExternalUrl(project.repository_url);
@@ -48,6 +56,7 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
 
   return (
     <article>
+      <ViewTracker id={project.id} kind="project_view" />
       <JsonLd data={projectJsonLd(project, profile?.full_name ?? '')} />
       <JsonLd
         data={breadcrumbJsonLd([
@@ -68,7 +77,9 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
               <ProgressBadge progress={project.progress} />
               {period ? <span className="text-sm text-muted">{period}</span> : null}
             </div>
-            <h1 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.015em] text-ink sm:text-5xl">{project.title}</h1>
+            <h1 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.015em] text-ink sm:text-5xl">
+              {project.title}
+            </h1>
             <p className="mt-4 max-w-2xl font-serif text-xl leading-relaxed text-navy-800">{project.summary}</p>
           </div>
           <dl className="space-y-5 self-end rounded-xl border border-rule bg-mist p-5 text-sm">
@@ -77,7 +88,10 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
                 <dt className="font-medium text-ink">Technologies</dt>
                 <dd className="mt-2 flex flex-wrap gap-1.5">
                   {project.technologies.map((technology) => (
-                    <span key={technology} className="rounded-sm bg-white px-1.5 py-0.5 text-xs text-navy-800 ring-1 ring-rule ring-inset">
+                    <span
+                      key={technology}
+                      className="rounded-sm bg-white px-1.5 py-0.5 text-xs text-navy-800 ring-1 ring-rule ring-inset"
+                    >
                       {technology}
                     </span>
                   ))}
@@ -95,17 +109,33 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
                 <dt className="font-medium text-ink">Links</dt>
                 <dd className="mt-2 flex flex-col gap-1.5">
                   {repository ? (
-                    <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-azure-700 hover:underline">
+                    <a
+                      href={repository}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-azure-700 hover:underline"
+                    >
                       <GitHubIcon className="size-3.5" /> Repository
                     </a>
                   ) : null}
                   {live ? (
-                    <a href={live} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-azure-700 hover:underline">
+                    <a
+                      href={live}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-azure-700 hover:underline"
+                    >
                       <ExternalLink className="size-3.5" aria-hidden="true" /> Live version
                     </a>
                   ) : null}
                   {links.map((link) => (
-                    <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-azure-700 hover:underline">
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-azure-700 hover:underline"
+                    >
                       <ExternalLink className="size-3.5" aria-hidden="true" /> {link.label}
                     </a>
                   ))}
@@ -126,6 +156,7 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
         />
 
         <div className="mt-12 max-w-prose">
+          <AttachmentsList files={files} />
           <RichContent doc={project.content} />
         </div>
 
@@ -138,8 +169,17 @@ export default async function ProjectPage({ params }: PageProps<'/projects/[slug
               {project.gallery.map((image) => {
                 const src = publicImageUrl('project-images', image.path);
                 return src ? (
-                  <li key={image.path} className="relative aspect-[16/10] overflow-hidden rounded-lg border border-rule">
-                    <Image src={src} alt={image.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className="object-cover" />
+                  <li
+                    key={image.path}
+                    className="relative aspect-[16/10] overflow-hidden rounded-lg border border-rule"
+                  >
+                    <Image
+                      src={src}
+                      alt={image.alt}
+                      fill
+                      sizes="(min-width: 640px) 50vw, 100vw"
+                      className="object-cover"
+                    />
                   </li>
                 ) : null;
               })}

@@ -10,6 +10,8 @@ import { ACCEPTED_IMAGE_TYPES, uploadImage } from '@/features/files/client/uploa
 
 import { CitationDialog, ImageDetailsDialog, LinkDialog, MathDialog } from './editor-dialogs';
 import { createEditorExtensions } from './editor-extensions';
+import { FootnoteControl } from './footnote-control';
+import { VideoControls } from './video-controls';
 import { EditorToolbar } from './editor-toolbar';
 
 import 'katex/dist/katex.min.css';
@@ -73,12 +75,21 @@ export function RichTextEditor({
     },
   });
 
-  useEffect(() => () => {
-    if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl);
-  }, [pendingImage]);
+  useEffect(
+    () => () => {
+      if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl);
+    },
+    [pendingImage],
+  );
 
   if (!editor) {
-    return <div className="min-h-[32rem] animate-pulse rounded-xl border border-rule bg-white" aria-busy="true" aria-label="Loading editor" />;
+    return (
+      <div
+        className="min-h-[32rem] animate-pulse rounded-xl border border-rule bg-white"
+        aria-busy="true"
+        aria-label="Loading editor"
+      />
+    );
   }
 
   const insertImage = async (details: { alt: string; caption: string }) => {
@@ -89,7 +100,13 @@ export function RichTextEditor({
       editor
         .chain()
         .focus()
-        .setImage({ src: uploaded.url, alt: details.alt, title: details.caption || undefined, width: uploaded.width, height: uploaded.height })
+        .setImage({
+          src: uploaded.url,
+          alt: details.alt,
+          title: details.caption || undefined,
+          width: uploaded.width,
+          height: uploaded.height,
+        })
         .run();
       toast.success('Image inserted.');
     } catch (error) {
@@ -124,8 +141,16 @@ export function RichTextEditor({
         onMath={(display) => setMath({ display, latex: '' })}
         onCitation={() => setCitationOpen(true)}
       />
+      <VideoControls
+        onInsert={(src, title) => editor.chain().focus().insertContent({ type: 'video', attrs: { src, title } }).run()}
+      />
+      <FootnoteControl
+        onInsert={(id, text) => editor.chain().focus().insertContent({ type: 'footnote', attrs: { id, text } }).run()}
+      />
       <EditorContent editor={editor} />
-      <div className="flex justify-end border-t border-rule px-4 py-2 text-xs text-muted tabular">{wordCount} {wordCount === 1 ? 'word' : 'words'}</div>
+      <div className="flex justify-end border-t border-rule px-4 py-2 text-xs text-muted tabular">
+        {wordCount} {wordCount === 1 ? 'word' : 'words'}
+      </div>
 
       <input
         ref={fileInput}
@@ -151,7 +176,13 @@ export function RichTextEditor({
         />
       ) : null}
       {math ? (
-        <MathDialog open onOpenChange={(open) => (!open ? setMath(null) : undefined)} initialLatex={math.latex} display={math.display} onApply={applyMath} />
+        <MathDialog
+          open
+          onOpenChange={(open) => (!open ? setMath(null) : undefined)}
+          initialLatex={math.latex}
+          display={math.display}
+          onApply={applyMath}
+        />
       ) : null}
       {citationOpen ? (
         <CitationDialog

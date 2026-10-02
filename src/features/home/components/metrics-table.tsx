@@ -26,7 +26,9 @@ export function MetricsTable({ metrics }: { metrics: PublicMetrics }) {
       ? [
           {
             label: 'Current semester',
-            value: metrics.total_semesters ? `${metrics.current_semester}/${metrics.total_semesters}` : String(metrics.current_semester),
+            value: metrics.total_semesters
+              ? `${metrics.current_semester}/${metrics.total_semesters}`
+              : String(metrics.current_semester),
           },
         ]
       : []),
@@ -37,13 +39,13 @@ export function MetricsTable({ metrics }: { metrics: PublicMetrics }) {
   return (
     <figure aria-labelledby="metrics-caption">
       <figcaption id="metrics-caption" className="mb-3 text-sm text-muted">
-        <span className="font-semibold text-ink">Table 1.</span> The archive at a glance, counted live from published content.
+        <span className="font-semibold text-ink">The research archive</span> · From published work, in real time.
       </figcaption>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-y-2 border-navy-900 py-6 sm:grid-cols-3 lg:grid-flow-col lg:auto-cols-fr lg:grid-cols-none">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 rounded-xl border border-rule bg-white p-6 shadow-raise sm:grid-cols-3 lg:grid-flow-col lg:auto-cols-fr lg:grid-cols-none">
         {items.map((item) => (
           <div key={item.label} className="flex flex-col-reverse">
             <dt className="mt-1 text-sm text-muted">{item.label}</dt>
-            <dd className="text-3xl font-semibold tracking-tight text-ink tabular sm:text-4xl">{item.value}</dd>
+            <dd className="text-3xl font-medium tracking-tight text-ink tabular sm:text-4xl">{item.value}</dd>
           </div>
         ))}
       </dl>

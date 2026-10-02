@@ -5,6 +5,9 @@ import type { ArticleInput } from '@/schemas/article.schema';
 
 /** Editor form state. Everything is a string in inputs; the server schema coerces. */
 export interface ArticleFormValues {
+  pmid: string;
+  og_image_path: string | null;
+  published_at: string;
   title: string;
   slug: string;
   subtitle: string;
@@ -21,11 +24,25 @@ export interface ArticleFormValues {
   seo_description: string;
   cover_image_path: string | null;
   cover_image_alt: string;
-  references: Array<{ title: string; authors: string; journal: string; year: string; doi: string; url: string; pmid: string }>;
+  references: Array<{
+    title: string;
+    authors: string;
+    journal: string;
+    year: string;
+    doi: string;
+    url: string;
+    pmid: string;
+    volume: string;
+    issue: string;
+    pages: string;
+  }>;
 }
 
 export function toFormValues(article: EditorArticle | null): ArticleFormValues {
   return {
+    pmid: article?.pmid ?? '',
+    og_image_path: article?.og_image_path ?? null,
+    published_at: article?.published_at ?? '',
     title: article?.title ?? '',
     slug: article?.slug ?? '',
     subtitle: article?.subtitle ?? '',
@@ -43,6 +60,9 @@ export function toFormValues(article: EditorArticle | null): ArticleFormValues {
     cover_image_path: article?.cover_image_path ?? null,
     cover_image_alt: article?.cover_image_alt ?? '',
     references: (article?.references ?? []).map((reference) => ({
+      volume: reference.volume ?? '',
+      issue: reference.issue ?? '',
+      pages: reference.pages ?? '',
       title: reference.title,
       authors: reference.authors,
       journal: reference.journal,

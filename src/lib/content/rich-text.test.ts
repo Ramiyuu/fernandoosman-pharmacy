@@ -6,6 +6,30 @@ const ALLOWED_IMAGE = '/media/article-images/articles/0b8a6c2e-1d3f-4a5b-8c7d-9e
 const options = { isAllowedImageSrc: (src: string) => src === ALLOWED_IMAGE };
 
 describe('sanitizeRichText', () => {
+  it('bounds footnote text and rejects unsafe anchors and foreign video sources', () => {
+    const id = '0b8a6c2e-1d3f-4a5b-8c7d-9e0f1a2b3c4d';
+    const doc = sanitizeRichText(
+      {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'footnote', attrs: { id, text: 'a'.repeat(1500), onclick: 'alert(1)' } },
+              { type: 'footnote', attrs: { id: '" onclick="alert(1)', text: 'Unsafe' } },
+            ],
+          },
+          { type: 'video', attrs: { src: 'https://attacker.test/track.mp4', title: 'Foreign' } },
+          { type: 'video', attrs: { src: `/api/videos/${id}`, title: 'Study video' } },
+        ],
+      },
+      options,
+    );
+    expect(doc.content).toHaveLength(2);
+    expect(doc.content[0].content).toHaveLength(1);
+    expect(doc.content[0].content?.[0].attrs).toEqual({ id, text: 'a'.repeat(1000) });
+    expect(doc.content[1].attrs).toEqual({ src: `/api/videos/${id}`, title: 'Study video' });
+  });
   it('keeps allowed structure', () => {
     const doc = sanitizeRichText(
       {
@@ -20,7 +44,11 @@ describe('sanitizeRichText', () => {
               { type: 'citation', attrs: { refs: '1, 2' } },
             ],
           },
-          { type: 'callout', attrs: { variant: 'key-point' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }] },
+          {
+            type: 'callout',
+            attrs: { variant: 'key-point' },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }],
+          },
           { type: 'image', attrs: { src: ALLOWED_IMAGE, alt: 'Figure', width: 800, height: 400 } },
         ],
       },
@@ -42,14 +70,26 @@ describe('sanitizeRichText', () => {
             attrs: { onclick: 'alert(1)', style: 'x' },
             content: [
               { type: 'text', text: 'click', marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }] },
-              { type: 'text', text: 'data', marks: [{ type: 'link', attrs: { href: 'data:text/html,<script>alert(1)</script>' } }] },
-              { type: 'text', text: 'ok', marks: [{ type: 'link', attrs: { href: 'https://doi.org/10.1/x', onmouseover: 'x' } }] },
+              {
+                type: 'text',
+                text: 'data',
+                marks: [{ type: 'link', attrs: { href: 'data:text/html,<script>alert(1)</script>' } }],
+              },
+              {
+                type: 'text',
+                text: 'ok',
+                marks: [{ type: 'link', attrs: { href: 'https://doi.org/10.1/x', onmouseover: 'x' } }],
+              },
               { type: 'text', text: '<script>alert(1)</script>' },
             ],
           },
           { type: 'image', attrs: { src: 'https://tracker.example.com/pixel.gif', alt: '' } },
           { type: 'image', attrs: { src: 'data:image/svg+xml,<svg onload=alert(1)>' } },
-          { type: 'callout', attrs: { variant: '"><script>' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'y' }] }] },
+          {
+            type: 'callout',
+            attrs: { variant: '"><script>' },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'y' }] }],
+          },
         ],
       },
       options,

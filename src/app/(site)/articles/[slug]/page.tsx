@@ -1,3 +1,5 @@
+import { publicImageUrl } from '@/lib/storage/public-url';
+import { ViewTracker } from '@/components/content/view-tracker';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -23,6 +25,7 @@ export async function generateMetadata({ params }: PageProps<'/articles/[slug]'>
     description: truncate(article.seo_description || article.excerpt || article.subtitle || article.title),
     path: `/articles/${article.slug}`,
     type: 'article',
+    image: publicImageUrl('article-images', article.og_image_path),
     publishedTime: article.published_at,
     modifiedTime: article.updated_at,
     authors: [article.author_name ?? profile?.full_name ?? ''],
@@ -40,6 +43,7 @@ export default async function ArticlePage({ params }: PageProps<'/articles/[slug
 
   return (
     <>
+      <ViewTracker id={article.id} kind="article_view" />
       <JsonLd data={articleJsonLd(article, authorName)} />
       <JsonLd
         data={breadcrumbJsonLd([

@@ -7,6 +7,9 @@ import { asRichTextDoc } from '@/lib/content/rich-text';
 import { publicDb } from '@/lib/db/client';
 import { compile, sql, type SqlFragment } from '@/lib/db/sql';
 import type {
+  EducationEntry,
+  ExperienceEntry,
+  CertificationEntry,
   ArticleCard,
   ArticleDetail,
   ArticleFilterOptions,
@@ -68,23 +71,26 @@ export const getPublishedArticles = cache(
     ),
 );
 
-export const getFeaturedArticle = cache(
-  async (): Promise<ArticleCard | null> => value('get_featured_article', sql`select public.get_featured_article() as value`),
+export const getFeaturedArticle = cache(async (): Promise<ArticleCard | null> =>
+  value('get_featured_article', sql`select public.get_featured_article() as value`),
 );
 
 export const getArticleBySlug = cache(async (slug: string): Promise<ArticleDetail | null> => {
-  const article = await value<ArticleDetail | null>('get_article_by_slug', sql`select public.get_article_by_slug(${slug}) as value`);
+  const article = await value<ArticleDetail | null>(
+    'get_article_by_slug',
+    sql`select public.get_article_by_slug(${slug}) as value`,
+  );
   return article ? { ...article, content: asRichTextDoc(article.content) } : null;
 });
 
-export const getArticleFilterOptions = cache(
-  async (): Promise<ArticleFilterOptions> =>
-    value('get_article_filter_options', sql`select public.get_article_filter_options() as value`),
+export const getArticleFilterOptions = cache(async (): Promise<ArticleFilterOptions> =>
+  value('get_article_filter_options', sql`select public.get_article_filter_options() as value`),
 );
 
-export const getTopicsWithCounts = cache(
-  async (): Promise<TopicWithCount[]> =>
-    read('get_topics_with_counts', sql`select * from public.get_topics_with_counts()`, (q) => publicDb().many<TopicWithCount>(q)),
+export const getTopicsWithCounts = cache(async (): Promise<TopicWithCount[]> =>
+  read('get_topics_with_counts', sql`select * from public.get_topics_with_counts()`, (q) =>
+    publicDb().many<TopicWithCount>(q),
+  ),
 );
 
 export const getTopicBySlug = cache(async (slug: string): Promise<TopicWithCount | null> => {
@@ -92,8 +98,8 @@ export const getTopicBySlug = cache(async (slug: string): Promise<TopicWithCount
   return topics.find((topic) => topic.slug === slug) ?? null;
 });
 
-export const getPublicMetrics = cache(
-  async (): Promise<PublicMetrics> => value('get_public_metrics', sql`select public.get_public_metrics() as value`),
+export const getPublicMetrics = cache(async (): Promise<PublicMetrics> =>
+  value('get_public_metrics', sql`select public.get_public_metrics() as value`),
 );
 
 export const getPublishedProjects = cache(
@@ -105,7 +111,10 @@ export const getPublishedProjects = cache(
 );
 
 export const getProjectBySlug = cache(async (slug: string): Promise<ProjectDetail | null> => {
-  const project = await value<ProjectDetail | null>('get_project_by_slug', sql`select public.get_project_by_slug(${slug}) as value`);
+  const project = await value<ProjectDetail | null>(
+    'get_project_by_slug',
+    sql`select public.get_project_by_slug(${slug}) as value`,
+  );
   if (!project) return null;
   return {
     ...project,
@@ -115,13 +124,15 @@ export const getProjectBySlug = cache(async (slug: string): Promise<ProjectDetai
   };
 });
 
-export const searchContent = cache(
-  async (query: string, page = 1): Promise<SearchResults> =>
-    value(
-      'search_content',
-      sql`select public.search_content(${query.slice(0, 200)}, ${SEARCH_PAGE_SIZE}::integer, ${offsetFor(page, SEARCH_PAGE_SIZE)}::integer) as value`,
-    ),
+export const searchContent = cache(async (query: string, page = 1): Promise<SearchResults> =>
+  value(
+    'search_content',
+    sql`select public.search_content(${query.slice(0, 200)}, ${SEARCH_PAGE_SIZE}::integer, ${offsetFor(page, SEARCH_PAGE_SIZE)}::integer) as value`,
+  ),
 );
+
+const visible = <T extends { visible?: boolean; order?: number }>(items: T[]) =>
+  items.filter((x) => x.visible !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
 const asArray = <T>(input: unknown): T[] => (Array.isArray(input) ? (input as T[]) : []);
 
@@ -133,10 +144,10 @@ export const getSiteProfile = cache(async (): Promise<SiteProfile | null> => {
   return {
     ...data,
     languages: asArray(data.languages),
-    education: asArray(data.education),
-    experience: asArray(data.experience),
+    education: visible(asArray<EducationEntry>(data.education)),
+    experience: visible(asArray<ExperienceEntry>(data.experience)),
     skills: asArray(data.skills),
-    certifications: asArray(data.certifications),
+    certifications: visible(asArray<CertificationEntry>(data.certifications)),
   };
 });
 
@@ -151,8 +162,10 @@ const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
-  const data = await read('settings', sql`select key, value from public.settings where key in ('site', 'contact')`, (q) =>
-    publicDb().many<{ key: string; value: unknown }>(q),
+  const data = await read(
+    'settings',
+    sql`select key, value from public.settings where key in ('site', 'contact')`,
+    (q) => publicDb().many<{ key: string; value: unknown }>(q),
   );
   const byKey = new Map(data.map((row) => [row.key, row.value]));
   return {
@@ -161,8 +174,8 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   };
 });
 
-export const getSitemapEntries = cache(
-  async (): Promise<SitemapEntries> => value('get_sitemap_entries', sql`select public.get_sitemap_entries() as value`),
+export const getSitemapEntries = cache(async (): Promise<SitemapEntries> =>
+  value('get_sitemap_entries', sql`select public.get_sitemap_entries() as value`),
 );
 
 /** Storage location of the current public CV (RLS only exposes the active CV file). */

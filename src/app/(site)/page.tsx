@@ -1,3 +1,4 @@
+import { ProfileCard } from '@/features/profile/components/profile-card';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -76,13 +77,40 @@ export default async function HomePage() {
         </section>
       ) : null}
 
+      {profile ? (
+        <section id="profile-snapshot" className="profile-snapshot mt-20 scroll-mt-24">
+          <Container className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
+            <div>
+              <p className="mb-4 text-sm font-medium text-teal-700">Behind the research</p>
+              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                A pharmacy student.
+                <br />A scientific perspective.
+              </h2>
+              <p className="mt-5 max-w-md font-serif text-xl leading-relaxed text-muted">
+                {profile.bio ? profile.bio.split('\n\n')[0] : profile.short_bio}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-4 text-sm font-medium text-azure-700">
+                <Link href="/about">Meet {profile.full_name.split(' ')[0]} →</Link>
+                <Link href="/certificates">Certificates →</Link>
+                <Link href="/experience">Experience →</Link>
+              </div>
+            </div>
+            <ProfileCard profile={profile} />
+          </Container>
+        </section>
+      ) : null}
+
       <section aria-labelledby="recent-heading" className="mt-20">
         <Container>
           <SectionHeader
             id="recent-heading"
             title="Recent articles"
             description="Explainers, paper reviews and notes on clinical evidence."
-            action={recent.total > recentArticles.length ? { href: '/articles', label: `All ${recent.total} articles` } : undefined}
+            action={
+              recent.total > recentArticles.length
+                ? { href: '/articles', label: `All ${recent.total} articles` }
+                : undefined
+            }
           />
           {recentArticles.length > 0 ? (
             <div className="mt-8 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
@@ -132,7 +160,7 @@ export default async function HomePage() {
 
       <section aria-labelledby="contact-heading" className="mt-24">
         <Container>
-          <div className="flex flex-col gap-6 rounded-xl bg-navy-900 px-6 py-10 text-white sm:px-10 md:flex-row md:items-center md:justify-between">
+          <div className="contact-banner flex flex-col gap-6 rounded-xl bg-navy-900 px-6 py-10 text-white sm:px-10 md:flex-row md:items-center md:justify-between">
             <div className="max-w-xl">
               <h2 id="contact-heading" className="text-2xl font-semibold">
                 Internships, research or a question about a study?

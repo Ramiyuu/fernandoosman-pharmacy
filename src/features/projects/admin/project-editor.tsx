@@ -9,6 +9,7 @@ import { useRef, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch, type FieldPath } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ResourceUpload } from '@/features/files/components/resource-upload';
 import { RichTextEditor } from '@/components/editor/rich-text-editor';
 import { ImageField } from '@/components/forms/image-field';
 import { TagInput } from '@/components/forms/tag-input';
@@ -26,7 +27,10 @@ import type { EditorProject } from '@/services/admin/projects.admin';
 
 import { deleteProjectAction, saveProjectAction } from '../actions';
 
-type ProjectFormValues = Omit<ProjectInput, 'id' | 'content' | 'started_on' | 'completed_on' | 'repository_url' | 'live_url' | 'sort_order'> & {
+type ProjectFormValues = Omit<
+  ProjectInput,
+  'id' | 'content' | 'started_on' | 'completed_on' | 'repository_url' | 'live_url' | 'sort_order'
+> & {
   started_on: string;
   completed_on: string;
   repository_url: string;
@@ -56,7 +60,13 @@ function toFormValues(project: EditorProject | null): ProjectFormValues {
   };
 }
 
-export function ProjectEditor({ project, tagSuggestions }: { project: EditorProject | null; tagSuggestions: string[] }) {
+export function ProjectEditor({
+  project,
+  tagSuggestions,
+}: {
+  project: EditorProject | null;
+  tagSuggestions: string[];
+}) {
   const router = useRouter();
   const form = useForm<ProjectFormValues>({ defaultValues: toFormValues(project) });
   const { register, control, handleSubmit, setError, formState } = form;
@@ -74,7 +84,9 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
 
   const submitValues = async (values: ProjectFormValues) => {
     setSaving(true);
-    const result = await saveProjectAction({ ...values, id: project?.id ?? null, content: contentRef.current }).catch(() => null);
+    const result = await saveProjectAction({ ...values, id: project?.id ?? null, content: contentRef.current }).catch(
+      () => null,
+    );
     setSaving(false);
     if (!result || !result.ok) {
       for (const [field, messages] of Object.entries(result?.fieldErrors ?? {})) {
@@ -106,6 +118,7 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
 
   return (
     <form onSubmit={(event) => void handleSubmit(submitValues)(event)} noValidate>
+      <h1 className="sr-only">Project editor</h1>
       <div className="sticky top-0 z-20 border-b border-rule bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-[90rem] flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-10">
           <Link href="/admin/projects" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
@@ -134,7 +147,12 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
             <Field id="project-title" label="Title" required error={errors.title?.message}>
               <Input id="project-title" maxLength={200} aria-invalid={Boolean(errors.title)} {...register('title')} />
             </Field>
-            <Field id="project-summary" label="Description" hint="Shown on cards and as the page introduction." error={errors.summary?.message}>
+            <Field
+              id="project-summary"
+              label="Description"
+              hint="Shown on cards and as the page introduction."
+              error={errors.summary?.message}
+            >
               <Textarea id="project-summary" rows={3} maxLength={600} {...register('summary')} />
             </Field>
           </div>
@@ -155,8 +173,18 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
               <h2 id="gallery-heading" className="text-base font-semibold text-ink">
                 Gallery
               </h2>
-              <Button variant="secondary" size="sm" disabled={galleryUploading || gallery.fields.length >= 12} onClick={() => galleryInput.current?.click()}>
-                {galleryUploading ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ImagePlus aria-hidden="true" />} Add image
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={galleryUploading || gallery.fields.length >= 12}
+                onClick={() => galleryInput.current?.click()}
+              >
+                {galleryUploading ? (
+                  <LoaderCircle className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <ImagePlus aria-hidden="true" />
+                )}{' '}
+                Add image
               </Button>
               <input
                 ref={galleryInput}
@@ -182,8 +210,17 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
                       {src ? <Image src={src} alt="" fill sizes="300px" className="object-cover" /> : null}
                     </div>
                     <div className="flex gap-2">
-                      <Input aria-label={`Alternative text for image ${index + 1}`} placeholder="Alternative text" {...register(`gallery.${index}.alt`)} />
-                      <Button variant="danger-ghost" size="icon" onClick={() => gallery.remove(index)} aria-label={`Remove image ${index + 1}`}>
+                      <Input
+                        aria-label={`Alternative text for image ${index + 1}`}
+                        placeholder="Alternative text"
+                        {...register(`gallery.${index}.alt`)}
+                      />
+                      <Button
+                        variant="danger-ghost"
+                        size="icon"
+                        onClick={() => gallery.remove(index)}
+                        aria-label={`Remove image ${index + 1}`}
+                      >
                         <Trash2 aria-hidden="true" />
                       </Button>
                     </div>
@@ -195,6 +232,15 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
         </div>
 
         <aside className="space-y-4">
+          {project ? (
+            <section className="rounded-xl border border-rule bg-white p-4">
+              <h2 className="mb-3 font-medium">Project PDFs</h2>
+              <ResourceUpload projectId={project.id} value={null} onChange={() => router.refresh()} />
+              <p className="mt-3 text-xs text-muted">
+                Files follow project publication status. Manage or remove them in the media library.
+              </p>
+            </section>
+          ) : null}
           <section className="space-y-4 rounded-xl border border-rule bg-white p-4">
             <div className="grid grid-cols-2 gap-3">
               <Field id="project-status" label="Visibility">
@@ -218,7 +264,12 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
                 <Input id="project-end" type="date" {...register('completed_on')} />
               </Field>
             </div>
-            <Field id="project-slug" label="URL slug" hint="Leave empty to generate from the title." error={errors.slug?.message}>
+            <Field
+              id="project-slug"
+              label="URL slug"
+              hint="Leave empty to generate from the title."
+              error={errors.slug?.message}
+            >
               <Input id="project-slug" spellCheck={false} {...register('slug')} />
             </Field>
             <div className="grid grid-cols-2 items-end gap-3">
@@ -230,7 +281,8 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
                 name="featured"
                 render={({ field }) => (
                   <label className="flex h-10 items-center gap-2 text-sm text-navy-900">
-                    <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="Featured project" /> Featured
+                    <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="Featured project" />{' '}
+                    Featured
                   </label>
                 )}
               />
@@ -239,10 +291,34 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
 
           <section className="space-y-4 rounded-xl border border-rule bg-white p-4">
             <Field id="project-tech" label="Technologies">
-              <Controller control={control} name="technologies" render={({ field }) => <TagInput id="project-tech" value={field.value} onChange={field.onChange} max={20} maxLength={40} placeholder="e.g. Python" />} />
+              <Controller
+                control={control}
+                name="technologies"
+                render={({ field }) => (
+                  <TagInput
+                    id="project-tech"
+                    value={field.value}
+                    onChange={field.onChange}
+                    max={20}
+                    maxLength={40}
+                    placeholder="e.g. Python"
+                  />
+                )}
+              />
             </Field>
             <Field id="project-tags" label="Tags">
-              <Controller control={control} name="tags" render={({ field }) => <TagInput id="project-tags" value={field.value} onChange={field.onChange} suggestions={tagSuggestions} />} />
+              <Controller
+                control={control}
+                name="tags"
+                render={({ field }) => (
+                  <TagInput
+                    id="project-tags"
+                    value={field.value}
+                    onChange={field.onChange}
+                    suggestions={tagSuggestions}
+                  />
+                )}
+              />
             </Field>
           </section>
 
@@ -276,16 +352,36 @@ export function ProjectEditor({ project, tagSuggestions }: { project: EditorProj
               {links.fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-[1fr_auto] gap-2">
                   <div className="space-y-1.5">
-                    <Input aria-label={`Label for link ${index + 1}`} placeholder="Label" {...register(`links.${index}.label`)} />
-                    <Input aria-label={`URL for link ${index + 1}`} placeholder="https://" {...register(`links.${index}.url`)} />
+                    <Input
+                      aria-label={`Label for link ${index + 1}`}
+                      placeholder="Label"
+                      {...register(`links.${index}.label`)}
+                    />
+                    <Input
+                      aria-label={`URL for link ${index + 1}`}
+                      placeholder="https://"
+                      {...register(`links.${index}.url`)}
+                    />
                   </div>
-                  <Button variant="danger-ghost" size="icon" onClick={() => links.remove(index)} aria-label={`Remove link ${index + 1}`}>
+                  <Button
+                    variant="danger-ghost"
+                    size="icon"
+                    onClick={() => links.remove(index)}
+                    aria-label={`Remove link ${index + 1}`}
+                  >
                     <Trash2 aria-hidden="true" />
                   </Button>
                 </div>
               ))}
-              {errors.links ? <p className="text-sm text-danger-700">Check the links: each needs a label and a full URL.</p> : null}
-              <Button variant="secondary" size="sm" onClick={() => links.append({ label: '', url: '' })} disabled={links.fields.length >= 10}>
+              {errors.links ? (
+                <p className="text-sm text-danger-700">Check the links: each needs a label and a full URL.</p>
+              ) : null}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => links.append({ label: '', url: '' })}
+                disabled={links.fields.length >= 10}
+              >
                 <Plus aria-hidden="true" /> Add link
               </Button>
             </fieldset>

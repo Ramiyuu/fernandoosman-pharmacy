@@ -75,10 +75,15 @@ async function applyMigrations(client) {
     )`);
 
   const applied = new Map(
-    (await client.query('select name, checksum from private.schema_migrations')).rows.map((row) => [row.name, row.checksum]),
+    (await client.query('select name, checksum from private.schema_migrations')).rows.map((row) => [
+      row.name,
+      row.checksum,
+    ]),
   );
 
-  const files = readdirSync(MIGRATIONS_DIR).filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort();
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
+    .sort();
   let count = 0;
   for (const file of files) {
     const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
@@ -117,16 +122,19 @@ async function provisionLoginRole(client, ownerUser) {
   const password = decodeURIComponent(parsed.password);
 
   if (user === ownerUser) {
-    console.warn(
-      `! DATABASE_URL uses the owner role "${user}". The website should connect with its own role\n` +
+    fail(
+      `DATABASE_URL uses the owner role "${user}". The website should connect with its own role\n` +
         '  (e.g. portfolio_app) so a bug can never alter the schema. See README → Railway.',
     );
     return;
   }
   if (!/^[a-z_][a-z0-9_]{0,62}$/.test(user)) fail('The DATABASE_URL user must be lower-case letters, digits or _.');
-  if (['web_anon', 'web_admin', 'web_server', 'postgres'].includes(user)) fail(`"${user}" is reserved; use e.g. portfolio_app.`);
+  if (['web_anon', 'web_admin', 'web_server', 'postgres'].includes(user))
+    fail(`"${user}" is reserved; use e.g. portfolio_app.`);
   if (password.length < 24 || !/^[\x21-\x7e]+$/.test(password)) {
-    fail('The DATABASE_URL password must have at least 24 printable ASCII characters (generate one: openssl rand -hex 24).');
+    fail(
+      'The DATABASE_URL password must have at least 24 printable ASCII characters (generate one: openssl rand -hex 24).',
+    );
   }
 
   const verifier = scramVerifier(password);
@@ -134,8 +142,9 @@ async function provisionLoginRole(client, ownerUser) {
   const attributes = 'login inherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls connection limit 30';
   const statement = (
     await client.query(
-      exists ? `select format('alter role %I with ${attributes} password %L', $1::text, $2::text) as sql`
-             : `select format('create role %I with ${attributes} password %L', $1::text, $2::text) as sql`,
+      exists
+        ? `select format('alter role %I with ${attributes} password %L', $1::text, $2::text) as sql`
+        : `select format('create role %I with ${attributes} password %L', $1::text, $2::text) as sql`,
       [user, verifier],
     )
   ).rows[0].sql;
@@ -174,6 +183,17 @@ async function main() {
     if (version < MIN_SERVER_VERSION) fail(`PostgreSQL 16 or newer is required (found ${version}).`);
 
     await client.query('select pg_advisory_lock($1)', [LOCK_ID]);
+    if (process.argv.includes('--seed')) {
+      if (process.env.NODE_ENV === 'production') fail('Seed is disabled in production.');
+      const table = await client.query("select to_regclass('public.articles') as name");
+      if (table.rows[0].name) {
+        const content = await client.query(
+          'select (select count(*) from public.articles) + (select count(*) from public.projects) as total',
+        );
+        if (Number(content.rows[0].total) > 0)
+          fail('Seed refused: database already contains content. Use an empty test database.');
+      }
+    }
     await applyMigrations(client);
     await provisionLoginRole(client, ownerUser);
 

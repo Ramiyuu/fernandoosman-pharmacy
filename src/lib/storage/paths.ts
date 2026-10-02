@@ -1,7 +1,7 @@
 import { IMAGE_BUCKETS, IMAGE_FOLDERS, type ImageBucket, type ImageBucketKey } from '@/config/uploads';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const PDF_PATH = /^(articles\/[0-9a-f-]{36}|cv)\/[0-9a-f-]{36}\.pdf$/;
+const PDF_PATH = /^(articles\/[0-9a-f-]{36}|cv|resources)\/[0-9a-f-]{36}\.pdf$/;
 const IMAGE_PATH = /^(articles|profile|projects)\/[0-9a-f-]{36}\.(jpg|png|webp|avif|gif)$/;
 
 export function isUuid(value: unknown): value is string {
@@ -12,12 +12,12 @@ export function isUuid(value: unknown): value is string {
  * Storage paths are always generated here from random UUIDs. User-supplied
  * names never reach a path, which rules out path traversal and overwrites.
  */
-export function createPdfObjectPath(scope: { kind: 'article'; articleId: string } | { kind: 'cv' }) {
+export function createPdfObjectPath(scope: { kind: 'article'; articleId: string } | { kind: 'cv' | 'resource' }) {
   if (scope.kind === 'article' && !isUuid(scope.articleId)) {
     throw new Error('Invalid article id for storage path');
   }
   const internalName = `${crypto.randomUUID()}.pdf`;
-  const folder = scope.kind === 'article' ? `articles/${scope.articleId}` : 'cv';
+  const folder = scope.kind === 'article' ? `articles/${scope.articleId}` : scope.kind === 'cv' ? 'cv' : 'resources';
   return { internalName, path: `${folder}/${internalName}` };
 }
 

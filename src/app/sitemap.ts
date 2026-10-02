@@ -9,7 +9,18 @@ export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries = await getSitemapEntries();
-  const staticPages = ['/', '/articles', '/topics', '/projects', '/about', '/cv', '/contact', '/privacy'].map((path) => ({
+  const staticPages = [
+    '/',
+    '/articles',
+    '/topics',
+    '/projects',
+    '/about',
+    '/certificates',
+    '/experience',
+    '/cv',
+    '/contact',
+    '/privacy',
+  ].map((path) => ({
     url: absoluteUrl(path),
     changeFrequency: 'weekly' as const,
     priority: path === '/' ? 1 : 0.7,

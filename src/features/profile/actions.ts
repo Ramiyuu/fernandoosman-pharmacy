@@ -6,7 +6,12 @@ import { sql } from '@/lib/db/sql';
 import { failFromDbError } from '@/lib/db-errors';
 import { revalidatePublicContent } from '@/lib/revalidate';
 import { invalidInput } from '@/lib/validation';
-import { siteProfileSchema, siteSettingsSchema, type SiteProfileInput, type SiteSettingsInput } from '@/schemas/profile.schema';
+import {
+  siteProfileSchema,
+  siteSettingsSchema,
+  type SiteProfileInput,
+  type SiteSettingsInput,
+} from '@/schemas/profile.schema';
 import { logActivity } from '@/services/activity-log.service';
 
 export async function saveSiteProfileAction(input: SiteProfileInput): Promise<ActionResult> {
@@ -22,6 +27,10 @@ export async function saveSiteProfileAction(input: SiteProfileInput): Promise<Ac
   try {
     await db.execute(sql`
       update public.site_profile set
+        expected_graduation = ${data.expected_graduation},
+        current_studies = ${data.current_studies}::text[],
+        scientific_interests = ${data.scientific_interests}::text[],
+        website_url = ${data.website_url ?? null},
         full_name = ${data.full_name},
         headline = ${data.headline},
         focus_areas = ${data.focus_areas}::text[],
@@ -50,7 +59,11 @@ export async function saveSiteProfileAction(input: SiteProfileInput): Promise<Ac
     return failFromDbError('site_profile.save', error);
   }
 
-  await logActivity(db, userId, { action: 'profile_updated', entityType: 'profile', summary: 'Updated public profile' });
+  await logActivity(db, userId, {
+    action: 'profile_updated',
+    entityType: 'profile',
+    summary: 'Updated public profile',
+  });
   revalidatePublicContent();
   return ok(undefined, 'Profile saved.');
 }
@@ -76,7 +89,11 @@ export async function saveSettingsAction(input: SiteSettingsInput): Promise<Acti
     return failFromDbError('settings.save', error);
   }
 
-  await logActivity(db, userId, { action: 'settings_updated', entityType: 'settings', summary: 'Updated site settings' });
+  await logActivity(db, userId, {
+    action: 'settings_updated',
+    entityType: 'settings',
+    summary: 'Updated site settings',
+  });
   revalidatePublicContent();
   return ok(undefined, 'Settings saved.');
 }

@@ -1,4 +1,5 @@
 import { imageSize } from 'image-size';
+import { boundedFormData } from '@/lib/security/body';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { IMAGE_BUCKETS, IMAGE_UPLOAD, type ImageBucketKey } from '@/config/uploads';
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   let file: File;
   try {
-    const form = await request.formData();
+    const form = await boundedFormData(request, IMAGE_UPLOAD.maxBytes + 64 * 1024);
     const value = form.get('file');
     if (!(value instanceof File)) return error('No file was sent.', 400);
     file = value;
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (file.size === 0) return error('The file is empty.', 400);
-  if (file.size > IMAGE_UPLOAD.maxBytes) return error(`Images must be smaller than ${formatBytes(IMAGE_UPLOAD.maxBytes)}.`, 413);
+  if (file.size > IMAGE_UPLOAD.maxBytes)
+    return error(`Images must be smaller than ${formatBytes(IMAGE_UPLOAD.maxBytes)}.`, 413);
 
   const displayName = sanitizeDisplayFilename(file.name, 'image');
   const extension = getExtension(displayName);
@@ -106,7 +108,12 @@ export async function POST(request: NextRequest) {
     return error('The image could not be saved. Try again.', 500);
   }
 
-  await logActivity(db, userId, { action: 'image_uploaded', entityType: 'image', entityId: row.id, summary: displayName });
+  await logActivity(db, userId, {
+    action: 'image_uploaded',
+    entityType: 'image',
+    entityId: row.id,
+    summary: displayName,
+  });
 
   return NextResponse.json(
     { id: row.id, bucket, path, url: publicImageUrl(bucket, path), width: dimensions.width, height: dimensions.height },

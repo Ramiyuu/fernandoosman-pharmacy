@@ -1,5 +1,3 @@
-import type { NextConfig } from 'next';
-
 // -----------------------------------------------------------------------------
 // Fail fast on dangerous misconfiguration: secrets must never be exposed
 // through a NEXT_PUBLIC_ variable (those are inlined into the browser bundle).
@@ -30,8 +28,9 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self'",
-  "frame-src 'none'",
+  `connect-src 'self' ${process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : ''}${process.env.R2_ENDPOINT && !isHttpsSite ? ` ${new URL(process.env.R2_ENDPOINT).origin}` : ''}`,
+  'frame-src https://www.youtube-nocookie.com',
+  `media-src 'self' ${process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : ''}${!isHttpsSite && process.env.R2_ENDPOINT ? ` ${new URL(process.env.R2_ENDPOINT).origin}` : ''}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -50,7 +49,8 @@ const securityHeaders = [
   ...(isHttpsSite ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }] : []),
 ];
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   poweredByHeader: false,
   experimental: {
     // Enables forbidden() → app/forbidden.tsx (HTTP 403).

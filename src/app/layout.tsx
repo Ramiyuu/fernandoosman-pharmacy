@@ -13,8 +13,16 @@ import './globals.css';
 // Portuguese and English.
 const montserrat = localFont({
   src: [
-    { path: '../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2', weight: '100 900', style: 'normal' },
-    { path: '../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-italic.woff2', weight: '100 900', style: 'italic' },
+    {
+      path: '../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2',
+      weight: '100 900',
+      style: 'normal',
+    },
+    {
+      path: '../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-italic.woff2',
+      weight: '100 900',
+      style: 'italic',
+    },
   ],
   variable: '--font-montserrat',
   display: 'swap',
@@ -23,8 +31,16 @@ const montserrat = localFont({
 
 const sourceSerif = localFont({
   src: [
-    { path: '../../node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-opsz-normal.woff2', weight: '200 900', style: 'normal' },
-    { path: '../../node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-opsz-italic.woff2', weight: '200 900', style: 'italic' },
+    {
+      path: '../../node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-opsz-normal.woff2',
+      weight: '200 900',
+      style: 'normal',
+    },
+    {
+      path: '../../node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-opsz-italic.woff2',
+      weight: '200 900',
+      style: 'italic',
+    },
   ],
   variable: '--font-source-serif',
   display: 'swap',
@@ -38,6 +54,7 @@ export const metadata: Metadata = {
     template: '%s | Fernando Osman',
   },
   description: 'Scientific communication, clinical evidence and data-driven learning in pharmacy.',
+  alternates: { types: { 'application/rss+xml': '/rss.xml' } },
   applicationName: 'Fernando Osman',
   authors: [{ name: 'Fernando Osman' }],
   formatDetection: { telephone: false, email: false, address: false },

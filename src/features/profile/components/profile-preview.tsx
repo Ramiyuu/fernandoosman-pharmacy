@@ -21,6 +21,10 @@ export function ProfilePreview({ control }: { control: Control<ProfileFormValues
   const values = useWatch({ control }) as ProfileFormValues;
 
   const profile: SiteProfile = {
+    expected_graduation: values.expected_graduation ?? '',
+    current_studies: values.current_studies ?? [],
+    scientific_interests: values.scientific_interests ?? [],
+    website_url: values.website_url || null,
     full_name: values.full_name || 'Your name',
     headline: values.headline ?? '',
     focus_areas: (values.focus_areas ?? []).filter(Boolean),

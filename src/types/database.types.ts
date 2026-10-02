@@ -11,8 +11,10 @@ export type ContentStatus = 'draft' | 'published' | 'archived';
 export type ProjectProgress = 'planned' | 'in_progress' | 'completed';
 export type FileVisibility = 'public' | 'private';
 export type FileStatus = 'pending' | 'ready' | 'failed';
-export type FileKind = 'article_attachment' | 'cv';
+export type FileKind = 'article_attachment' | 'cv' | 'resource';
 export type ActivityAction =
+  | 'video_uploaded'
+  | 'video_deleted'
   | 'login'
   | 'logout'
   | 'article_created'
@@ -41,17 +43,7 @@ export type ActivityAction =
   | 'sessions_revoked';
 
 export type ActivityEntityType =
-  | 'article'
-  | 'project'
-  | 'file'
-  | 'image'
-  | 'topic'
-  | 'category'
-  | 'tag'
-  | 'profile'
-  | 'settings'
-  | 'auth'
-  | 'contact';
+  'article' | 'project' | 'file' | 'image' | 'topic' | 'category' | 'tag' | 'profile' | 'settings' | 'auth' | 'contact';
 
 export type ProfileRow = {
   id: string;
@@ -92,6 +84,8 @@ export type TagRow = {
 };
 
 export type ArticleRow = {
+  pmid: string | null;
+  og_image_path: string | null;
   id: string;
   title: string;
   slug: string;
@@ -192,6 +186,10 @@ export type ProjectRow = {
 };
 
 export type SiteProfileRow = {
+  expected_graduation: string;
+  current_studies: string[];
+  scientific_interests: string[];
+  website_url: string | null;
   id: number;
   full_name: string;
   headline: string;

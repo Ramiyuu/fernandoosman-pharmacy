@@ -37,7 +37,11 @@ interface ArticleSettingsPanelProps {
 }
 
 export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSettingsPanelProps) {
-  const { register, control, formState: { errors } } = form;
+  const {
+    register,
+    control,
+    formState: { errors },
+  } = form;
   const [seoTitle, seoDescription, title, excerpt, slug, coverAlt] = useWatch({
     control,
     name: ['seo_title', 'seo_description', 'title', 'excerpt', 'slug', 'cover_image_alt'],
@@ -48,7 +52,12 @@ export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSet
   return (
     <div className="space-y-4">
       <Group title="Organisation">
-        <Field id="article-slug" label="URL slug" error={errors.slug?.message} hint={`/articles/${slug || 'generated-from-title'}`}>
+        <Field
+          id="article-slug"
+          label="URL slug"
+          error={errors.slug?.message}
+          hint={`/articles/${slug || 'generated-from-title'}`}
+        >
           <Input
             id="article-slug"
             {...slugField}
@@ -81,7 +90,12 @@ export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSet
             <div className="mt-2 grid gap-1.5">
               {options.topics.map((topic) => (
                 <label key={topic.id} className="flex items-center gap-2 text-sm text-navy-900">
-                  <input type="checkbox" value={topic.id} className="size-4 accent-teal-600" {...register('topic_ids')} />
+                  <input
+                    type="checkbox"
+                    value={topic.id}
+                    className="size-4 accent-teal-600"
+                    {...register('topic_ids')}
+                  />
                   {topic.name}
                 </label>
               ))}
@@ -160,26 +174,87 @@ export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSet
         />
       </Group>
 
+      <Group title="Publication metadata">
+        <Field id="article-pmid" label="PMID">
+          <Input id="article-pmid" inputMode="numeric" {...register('pmid')} />
+        </Field>
+        <Field
+          id="article-date"
+          label="Publication date"
+          hint="ISO 8601 (UTC), e.g. 2026-10-02T12:00:00.000Z. This changes the displayed date; publish/unpublish controls visibility."
+        >
+          <Input id="article-date" {...register('published_at')} />
+        </Field>
+        <Controller
+          control={control}
+          name="og_image_path"
+          render={({ field }) => (
+            <ImageField
+              id="article-og"
+              label="Social sharing image"
+              bucket="article"
+              path={field.value}
+              onPathChange={field.onChange}
+            />
+          )}
+        />
+      </Group>
       <Group title="Study discussed">
         <Field id="article-doi" label="DOI" error={errors.doi?.message} hint="For example 10.1056/NEJMoa2034577">
-          <Input id="article-doi" {...register('doi')} aria-invalid={Boolean(errors.doi)} aria-describedby={describedBy('article-doi', true)} spellCheck={false} />
+          <Input
+            id="article-doi"
+            {...register('doi')}
+            aria-invalid={Boolean(errors.doi)}
+            aria-describedby={describedBy('article-doi', true)}
+            spellCheck={false}
+          />
         </Field>
         <Field id="article-external" label="Link to the study" error={errors.external_url?.message}>
-          <Input id="article-external" type="url" placeholder="https://" {...register('external_url')} aria-invalid={Boolean(errors.external_url)} aria-describedby={describedBy('article-external', Boolean(errors.external_url))} />
+          <Input
+            id="article-external"
+            type="url"
+            placeholder="https://"
+            {...register('external_url')}
+            aria-invalid={Boolean(errors.external_url)}
+            aria-describedby={describedBy('article-external', Boolean(errors.external_url))}
+          />
         </Field>
       </Group>
 
       <Group title="Search engines">
-        <Field id="article-seo-title" label="SEO title" aside={<Counter value={seoTitle} max={70} />} hint="Leave empty to use the article title.">
-          <Input id="article-seo-title" maxLength={120} {...register('seo_title')} aria-describedby={describedBy('article-seo-title', true)} />
+        <Field
+          id="article-seo-title"
+          label="SEO title"
+          aside={<Counter value={seoTitle} max={70} />}
+          hint="Leave empty to use the article title."
+        >
+          <Input
+            id="article-seo-title"
+            maxLength={120}
+            {...register('seo_title')}
+            aria-describedby={describedBy('article-seo-title', true)}
+          />
         </Field>
-        <Field id="article-seo-description" label="SEO description" aside={<Counter value={seoDescription} max={160} />} hint="Leave empty to use the summary.">
-          <Textarea id="article-seo-description" rows={3} maxLength={320} {...register('seo_description')} aria-describedby={describedBy('article-seo-description', true)} />
+        <Field
+          id="article-seo-description"
+          label="SEO description"
+          aside={<Counter value={seoDescription} max={160} />}
+          hint="Leave empty to use the summary."
+        >
+          <Textarea
+            id="article-seo-description"
+            rows={3}
+            maxLength={320}
+            {...register('seo_description')}
+            aria-describedby={describedBy('article-seo-description', true)}
+          />
         </Field>
         <div className="rounded-md bg-mist p-3" aria-label="Search result preview">
           <p className="truncate text-sm text-azure-700">{seoTitle || title || 'Article title'}</p>
           <p className="truncate text-xs text-success-700">/articles/{slug}</p>
-          <p className="mt-1 line-clamp-2 text-xs text-muted">{seoDescription || excerpt || 'Summary shown in search results.'}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-muted">
+            {seoDescription || excerpt || 'Summary shown in search results.'}
+          </p>
         </div>
       </Group>
     </div>

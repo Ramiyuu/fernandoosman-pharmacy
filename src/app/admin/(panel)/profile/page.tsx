@@ -29,6 +29,10 @@ export default async function ProfileAdminPage() {
   }
 
   const initial: ProfileFormValues = {
+    expected_graduation: profile?.expected_graduation ?? '',
+    current_studies: profile?.current_studies ?? [],
+    scientific_interests: profile?.scientific_interests ?? [],
+    website_url: profile?.website_url ?? '',
     full_name: profile?.full_name ?? '',
     headline: profile?.headline ?? '',
     focus_areas: profile?.focus_areas ?? [],
@@ -54,7 +58,11 @@ export default async function ProfileAdminPage() {
   };
 
   return (
-    <AdminPage wide title="Profile & CV" description="Your photo, name, semester, links and CV as visitors see them. Changes go live as soon as you save.">
+    <AdminPage
+      wide
+      title="Profile & CV"
+      description="Your photo, name, semester, links and CV as visitors see them. Changes go live as soon as you save."
+    >
       <div className="space-y-6">
         <ProfileForm initial={initial} />
         <CvManager current={currentCv} maxBytes={PDF_UPLOAD.maxBytes} />
