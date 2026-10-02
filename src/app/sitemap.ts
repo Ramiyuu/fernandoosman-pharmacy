@@ -3,11 +3,13 @@ import type { MetadataRoute } from 'next';
 import { absoluteUrl } from '@/lib/seo/metadata';
 import { getSitemapEntries } from '@/services/public-content.service';
 
-export const revalidate = 3600;
+// Rendered on request (the database is not reachable while Railway builds);
+// data comes from the in-memory public cache (src/lib/cache/public-cache.ts).
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries = await getSitemapEntries();
-  const staticPages = ['/', '/articles', '/topics', '/projects', '/about', '/cv', '/contact'].map((path) => ({
+  const staticPages = ['/', '/articles', '/topics', '/projects', '/about', '/cv', '/contact', '/privacy'].map((path) => ({
     url: absoluteUrl(path),
     changeFrequency: 'weekly' as const,
     priority: path === '/' ? 1 : 0.7,

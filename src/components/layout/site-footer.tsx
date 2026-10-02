@@ -1,6 +1,7 @@
 import { Mail } from 'lucide-react';
 import Link from 'next/link';
 
+import { LogoMark, Motto, Tagline, Wordmark } from '@/components/brand/brand';
 import { GitHubIcon, LinkedInIcon } from '@/components/icons/brand-icons';
 import { PUBLIC_NAV } from '@/config/site';
 import type { SiteProfile } from '@/types/content';
@@ -18,8 +19,15 @@ export function SiteFooter({ siteName, tagline, profile }: { siteName: string; t
     <footer className="mt-24 border-t border-rule bg-mist">
       <Container className="grid gap-10 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
         <div className="max-w-sm">
-          <p className="font-semibold text-ink">{siteName}</p>
-          <p className="mt-2 text-sm leading-relaxed text-muted">{tagline}</p>
+          <div className="flex items-center gap-3">
+            <LogoMark height={30} />
+            <Wordmark name={siteName} className="text-[0.8125rem]" />
+          </div>
+          {profile?.focus_areas.length ? (
+            <Tagline items={profile.focus_areas} className="mt-4 text-sm leading-relaxed font-light" />
+          ) : (
+            <p className="mt-4 text-sm leading-relaxed text-muted">{tagline}</p>
+          )}
         </div>
         <nav aria-label="Footer">
           <p className="text-sm font-medium text-ink">Explore</p>
@@ -65,10 +73,16 @@ export function SiteFooter({ siteName, tagline, profile }: { siteName: string; t
           </ul>
         </div>
       </Container>
-      <Container className="border-t border-rule py-6 text-xs text-muted">
+      <Container className="pb-2">
+        <Motto />
+      </Container>
+      <Container className="flex flex-wrap justify-between gap-x-6 gap-y-2 py-6 text-xs text-muted">
         <p>
           © {year} {siteName}. Content is for education and does not replace professional medical advice.
         </p>
+        <Link href="/privacy" className="hover:text-ink">
+          Privacy notice (LGPD)
+        </Link>
       </Container>
     </footer>
   );

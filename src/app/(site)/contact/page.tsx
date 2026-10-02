@@ -3,13 +3,12 @@ import type { Metadata } from 'next';
 
 import { LinkedInIcon } from '@/components/icons/brand-icons';
 import { Container } from '@/components/layout/container';
+import { contactRetentionDays, describeRetention } from '@/config/privacy';
 import { PageHeader } from '@/components/layout/section-header';
 import { ContactForm } from '@/features/contact/components/contact-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { getSiteProfile, getSiteSettings } from '@/services/public-content.service';
 import { safeExternalUrl } from '@/utils/url';
-
-export const revalidate = 300;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Contact',
@@ -26,7 +25,7 @@ export default async function ContactPage() {
       <PageHeader title="Contact" description={settings.contact.intro || 'Send a message and I will reply by email.'} />
       <div className="mt-10 grid gap-12 lg:grid-cols-[1fr_18rem]">
         <div className="max-w-2xl">
-          <ContactForm />
+          <ContactForm retention={describeRetention(contactRetentionDays())} />
         </div>
         <aside className="space-y-4 text-sm">
           {profile?.professional_email ? (

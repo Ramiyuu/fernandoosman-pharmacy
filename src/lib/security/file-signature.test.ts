@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { detectFileKind, detectImageMime, hasPdfTrailer, isPdf } from './file-signature';
+import { detectFileKind, detectImageMime, findPdfActiveContent, hasPdfTrailer, isPdf } from './file-signature';
 
 const bytes = (...values: Array<number | string>) =>
   new Uint8Array(values.flatMap((value) => (typeof value === 'string' ? [...value].map((char) => char.charCodeAt(0)) : [value])));
@@ -47,5 +47,24 @@ describe('image signatures', () => {
     expect(detectImageMime(bytes('<svg onload="alert(1)">'))).toBeNull();
     expect(detectImageMime(bytes(0x4d, 0x5a, 0x90, 0x00))).toBeNull();
     expect(detectImageMime(bytes('%PDF-1.7'))).toBeNull();
+  });
+});
+
+describe('PDF active content', () => {
+  const enc = (text: string) => new Uint8Array([...text].map((char) => char.charCodeAt(0)));
+
+  it('accepts ordinary PDFs, including links that contain /js or /launch', () => {
+    expect(findPdfActiveContent(enc('%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n%%EOF'))).toBeNull();
+    expect(
+      findPdfActiveContent(enc('<< /S /URI /URI (https://example.com/js/app.js) >> << /URI (https://x.org/launch/page) >>')),
+    ).toBeNull();
+  });
+
+  it('refuses scripts, launch actions and embedded files, even hex-escaped', () => {
+    expect(findPdfActiveContent(enc('<< /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>'))).toBe('javascript');
+    expect(findPdfActiveContent(enc('<< /AA << /O 12 0 R >> /JS 13 0 R >>'))).toBe('javascript');
+    expect(findPdfActiveContent(enc('<< /S/Launch /F (cmd.exe) >>'))).toBe('launch');
+    expect(findPdfActiveContent(enc('<< /Names << /EmbeddedFiles 3 0 R >> >>'))).toBe('embedded file');
+    expect(findPdfActiveContent(enc('<< /S /J#61vaScript >>'))).toBe('javascript');
   });
 });

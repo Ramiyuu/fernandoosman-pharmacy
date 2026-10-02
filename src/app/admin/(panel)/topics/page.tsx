@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Topics & categories' };
 
 export default async function TopicsAdminPage() {
   const session = await requireAdminPage('taxonomy:write');
-  const { topics, categories } = await getTopicsAndCategories(session.supabase);
+  const { topics, categories } = await getTopicsAndCategories(session.db);
 
   return (
     <AdminPage title="Topics & categories" description="Topics group articles by subject; categories describe the article format.">

@@ -5,8 +5,10 @@ import { AdminPage } from '@/features/admin/components/admin-page';
 import { CvManager } from '@/features/profile/components/cv-manager';
 import { ProfileForm, type ProfileFormValues } from '@/features/profile/components/profile-form';
 import { requireAdminPage } from '@/lib/auth/session';
+import { sql } from '@/lib/db/sql';
 import { failQuery } from '@/services/errors';
 import type { CertificationEntry, EducationEntry, ExperienceEntry, LanguageSkill, SkillGroup } from '@/types/content';
+import type { SiteProfileRow } from '@/types/database.types';
 
 export const metadata: Metadata = { title: 'Profile & CV' };
 
@@ -14,17 +16,16 @@ const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T
 
 export default async function ProfileAdminPage() {
   const session = await requireAdminPage('profile:write');
-  const { data: profile, error } = await session.supabase.from('site_profile').select('*').eq('id', 1).maybeSingle();
-  if (error) failQuery('admin.profile', error);
-
-  let currentCv = null;
-  if (profile?.cv_file_id) {
-    const { data } = await session.supabase
-      .from('article_files')
-      .select('id, original_filename, size_bytes, created_at')
-      .eq('id', profile.cv_file_id)
-      .maybeSingle();
-    currentCv = data;
+  let profile: SiteProfileRow | null;
+  let currentCv: { id: string; original_filename: string; size_bytes: number; created_at: string } | null = null;
+  try {
+    profile = await session.db.maybeOne<SiteProfileRow>(sql`select * from public.site_profile where id = 1`);
+    if (profile?.cv_file_id) {
+      currentCv = await session.db.maybeOne(sql`
+        select id, original_filename, size_bytes, created_at from public.article_files where id = ${profile.cv_file_id}`);
+    }
+  } catch (error) {
+    failQuery('admin.profile', error);
   }
 
   const initial: ProfileFormValues = {
@@ -53,10 +54,10 @@ export default async function ProfileAdminPage() {
   };
 
   return (
-    <AdminPage title="Profile & CV" description="Public information about you. Changes go live immediately after saving.">
+    <AdminPage wide title="Profile & CV" description="Your photo, name, semester, links and CV as visitors see them. Changes go live as soon as you save.">
       <div className="space-y-6">
-        <CvManager current={currentCv} maxBytes={PDF_UPLOAD.maxBytes} />
         <ProfileForm initial={initial} />
+        <CvManager current={currentCv} maxBytes={PDF_UPLOAD.maxBytes} />
       </div>
     </AdminPage>
   );

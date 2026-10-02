@@ -5,15 +5,8 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { ArticleView } from '@/features/articles/components/article-view';
 import { buildMetadata, truncate } from '@/lib/seo/metadata';
 import { articleJsonLd, breadcrumbJsonLd } from '@/lib/seo/structured-data';
-import { getArticleBySlug, getSitemapEntries, getSiteProfile } from '@/services/public-content.service';
+import { getArticleBySlug, getSiteProfile } from '@/services/public-content.service';
 import { isValidSlug } from '@/utils/slugify';
-
-export const revalidate = 300;
-
-export async function generateStaticParams() {
-  const entries = await getSitemapEntries();
-  return entries.articles.map((article) => ({ slug: article.slug }));
-}
 
 async function loadArticle(slug: string) {
   return isValidSlug(slug) ? getArticleBySlug(slug) : null;

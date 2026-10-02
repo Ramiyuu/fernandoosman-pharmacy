@@ -18,8 +18,8 @@ export default async function EditArticlePage({ params }: PageProps<'/admin/arti
   if (!isUuid(id)) notFound();
 
   const [article, options] = await Promise.all([
-    getArticleForEditor(session.supabase, id),
-    getEditorOptions(session.supabase, id),
+    getArticleForEditor(session.db, id),
+    getEditorOptions(session.db, id),
   ]);
   if (!article) notFound();
 

@@ -4,6 +4,11 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
 import { getSiteProfile, getSiteSettings } from '@/services/public-content.service';
 
+// Every public page renders on request: the database is not reachable while
+// Railway builds, so nothing is prerendered. Data comes from the in-memory
+// public cache (src/lib/cache/public-cache.ts), cleared on every admin change.
+export const dynamic = 'force-dynamic';
+
 export default async function SiteLayout({ children }: { children: ReactNode }) {
   const [settings, profile] = await Promise.all([getSiteSettings(), getSiteProfile()]);
 

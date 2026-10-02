@@ -9,6 +9,7 @@ import { StatusBadge } from '@/features/admin/components/admin-page';
 import { ArticleView } from '@/features/articles/components/article-view';
 import { asRichTextDoc } from '@/lib/content/rich-text';
 import { requireAdminPage } from '@/lib/auth/session';
+import { sql } from '@/lib/db/sql';
 import { isUuid } from '@/lib/storage/paths';
 import { getSiteProfile, getSiteSettings } from '@/services/public-content.service';
 import { failQuery } from '@/services/errors';
@@ -20,7 +21,7 @@ export const metadata: Metadata = { title: 'Preview', robots: { index: false, fo
 
 /**
  * Private preview of any article (drafts included). Access is checked here on
- * the server, and the data is read with the admin's session so RLS applies:
+ * the server, and the data is read as web_admin bound to the admin's profile, so RLS applies:
  * an anonymous request can never load an unpublished article, even by id.
  */
 export default async function ArticlePreviewPage({ params }: PageProps<'/preview/articles/[id]'>) {
@@ -28,11 +29,17 @@ export default async function ArticlePreviewPage({ params }: PageProps<'/preview
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  const { data, error } = await session.supabase.rpc('article_detail_json', { p_article_id: id, p_include_private_files: true });
-  if (error) failQuery('preview.article', error);
-  if (!data) notFound();
+  let raw: ArticleDetail | null;
+  try {
+    const row = await session.db.one<{ value: ArticleDetail | null }>(
+      sql`select public.article_detail_json(${id}::uuid, true) as value`,
+    );
+    raw = row.value;
+  } catch (error) {
+    failQuery('preview.article', error);
+  }
+  if (!raw) notFound();
 
-  const raw = data as unknown as ArticleDetail;
   const article: ArticleDetail = { ...raw, content: asRichTextDoc(raw.content) };
   const [settings, profile] = await Promise.all([getSiteSettings(), getSiteProfile()]);
 

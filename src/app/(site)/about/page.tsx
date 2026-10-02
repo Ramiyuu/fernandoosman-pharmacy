@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { Tagline, Wordmark } from '@/components/brand/brand';
 import { GitHubIcon, LinkedInIcon } from '@/components/icons/brand-icons';
 import { Container } from '@/components/layout/container';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -15,8 +16,6 @@ import { breadcrumbJsonLd, personJsonLd } from '@/lib/seo/structured-data';
 import { publicImageUrl } from '@/lib/storage/public-url';
 import { getSiteProfile } from '@/services/public-content.service';
 import { safeExternalUrl } from '@/utils/url';
-
-export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await getSiteProfile();
@@ -82,11 +81,9 @@ export default async function AboutPage() {
         </aside>
 
         <div className="max-w-prose">
-          <h1 className="display-condensed text-5xl leading-none font-semibold tracking-[-0.015em] text-ink sm:text-6xl">
-            {profile.full_name}
-          </h1>
-          <p className="mt-3 text-xl text-navy-800">{profile.headline}</p>
-          {profile.focus_areas.length > 0 ? <p className="mt-1 text-teal-700">{profile.focus_areas.join(' • ')}</p> : null}
+          <Wordmark as="h1" name={profile.full_name} className="text-3xl leading-tight tracking-[0.1em] sm:text-[2.75rem]" />
+          <p className="mt-4 text-xl font-semibold text-navy-900">{profile.headline}</p>
+          <Tagline items={profile.focus_areas} className="mt-2 font-light" />
 
           <div className="article-body mt-10 space-y-5">
             {paragraphs.map((paragraph) => (

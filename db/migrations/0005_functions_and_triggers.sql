@@ -1,11 +1,26 @@
 -- =============================================================================
--- 0300 · Helper functions and triggers
+-- 0005 · Helper functions and triggers
 -- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Identity of the current transaction. The server sets app.profile_id (with
+-- set_config(..., true), i.e. for one transaction only) after it has verified
+-- the Better Auth session; it is never taken from anything the browser sends.
+-- Only the website's server code can issue SQL: no database port is public.
+-- -----------------------------------------------------------------------------
+create or replace function public.current_profile_id()
+returns uuid
+language sql
+stable
+set search_path = ''
+as $$
+  select nullif(current_setting('app.profile_id', true), '')::uuid
+$$;
 
 -- -----------------------------------------------------------------------------
 -- Role helpers. SECURITY DEFINER so policies can read `profiles` without
 -- recursing into its own RLS. They only ever answer questions about the
--- *current* JWT subject (auth.uid()), never about an arbitrary user id.
+-- *current* profile (current_profile_id()), never about an arbitrary user id.
 -- -----------------------------------------------------------------------------
 create or replace function public.current_user_role()
 returns public.app_role
@@ -16,7 +31,7 @@ set search_path = ''
 as $$
   select p.role
   from public.profiles p
-  where p.id = (select auth.uid()) and p.is_active
+  where p.id = public.current_profile_id() and p.is_active
 $$;
 
 create or replace function public.is_admin()
@@ -52,7 +67,7 @@ as $$
       public.is_staff()
       and exists (
         select 1 from public.articles a
-        where a.id = p_article_id and a.author_id = (select auth.uid())
+        where a.id = p_article_id and a.author_id = public.current_profile_id()
       )
     )
 $$;
@@ -150,9 +165,9 @@ create trigger articles_clear_featured before insert or update on public.article
   for each row execute function public.clear_featured_on_delete();
 
 -- -----------------------------------------------------------------------------
--- New auth users get a profile WITHOUT any role. Public sign-up is disabled in
--- Supabase, but even if it were enabled a new account could not reach admin
--- data until a human grants a role.
+-- New auth users get a profile WITHOUT any role. Sign-up is disabled in Better
+-- Auth, but even if an account were created another way it could not reach
+-- admin data until a human grants a role.
 -- -----------------------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger
@@ -165,14 +180,14 @@ begin
   values (
     new.id,
     new.email,
-    left(coalesce(new.raw_user_meta_data ->> 'display_name', split_part(coalesce(new.email, ''), '@', 1)), 120)
+    left(coalesce(nullif(btrim(new.name), ''), split_part(coalesce(new.email, ''), '@', 1)), 120)
   )
   on conflict (id) do nothing;
   return new;
 end;
 $$;
 
-create trigger on_auth_user_created after insert on auth.users
+create trigger on_auth_user_created after insert on auth."user"
   for each row execute function public.handle_new_user();
 
 create or replace function public.handle_user_email_change()
@@ -187,7 +202,7 @@ begin
 end;
 $$;
 
-create trigger on_auth_user_email_changed after update of email on auth.users
+create trigger on_auth_user_email_changed after update of email on auth."user"
   for each row when (old.email is distinct from new.email)
   execute function public.handle_user_email_change();
 
@@ -217,10 +232,14 @@ $$;
 create trigger profiles_ensure_admin_remains before update on public.profiles
   for each row execute function public.ensure_admin_remains();
 
--- Trigger functions are not meant to be called through the API.
-revoke execute on function public.handle_new_user() from public, anon, authenticated;
-revoke execute on function public.handle_user_email_change() from public, anon, authenticated;
-revoke execute on function public.ensure_admin_remains() from public, anon, authenticated;
-revoke execute on function public.set_updated_at() from public, anon, authenticated;
-revoke execute on function public.set_published_at() from public, anon, authenticated;
-revoke execute on function public.clear_featured_on_delete() from public, anon, authenticated;
+-- -----------------------------------------------------------------------------
+-- Execution privileges. Nothing is executable by PUBLIC (see 0001). Policies
+-- run their helper functions with the privileges of the querying role, so the
+-- web roles need EXECUTE on them; trigger functions need no grant at all.
+-- -----------------------------------------------------------------------------
+grant execute on function public.current_profile_id() to web_anon, web_admin;
+grant execute on function public.current_user_role() to web_anon, web_admin;
+grant execute on function public.is_admin() to web_anon, web_admin;
+grant execute on function public.is_staff() to web_anon, web_admin;
+grant execute on function public.can_edit_article(uuid) to web_admin;
+grant execute on function public.slugify(text) to web_admin;

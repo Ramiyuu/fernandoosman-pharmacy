@@ -1,4 +1,4 @@
-// Sample articles used by supabase/seed.sql. Numerical examples that are not
+// Sample articles used by db/seed.sql. Numerical examples that are not
 // taken from a cited source are explicitly labelled as illustrative.
 import {
   bold,

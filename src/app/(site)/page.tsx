@@ -22,8 +22,6 @@ import {
   getTopicsWithCounts,
 } from '@/services/public-content.service';
 
-export const revalidate = 300;
-
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   return buildMetadata({

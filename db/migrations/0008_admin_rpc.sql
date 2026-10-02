@@ -1,9 +1,9 @@
 -- =============================================================================
--- 0700 · Admin functions (RPC)
+-- 0008 · Admin functions
 -- =============================================================================
 -- SECURITY INVOKER: they run as the calling user, so every statement inside is
 -- still checked by RLS. The explicit role checks give a clear error early.
--- Execution is revoked from anon.
+-- Only web_admin may execute them.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ begin
       coalesce(p_data ->> 'seo_title', ''),
       coalesce(p_data ->> 'seo_description', ''),
       greatest(coalesce((p_data ->> 'reading_time')::integer, 1), 1),
-      (select auth.uid()),
+      public.current_profile_id(),
       'draft'
     )
     returning id into v_id;
@@ -206,7 +206,7 @@ begin
       nullif(p_data ->> 'completed_on', '')::date,
       coalesce((p_data ->> 'featured')::boolean, false),
       coalesce((p_data ->> 'sort_order')::integer, 0),
-      (select auth.uid())
+      public.current_profile_id()
     )
     returning id into v_id;
   else
@@ -390,14 +390,8 @@ $$;
 -- -----------------------------------------------------------------------------
 -- Execution privileges
 -- -----------------------------------------------------------------------------
-revoke execute on function public.admin_save_article(uuid, jsonb, uuid[], text[], jsonb) from public, anon;
-revoke execute on function public.admin_save_project(uuid, jsonb, text[]) from public, anon;
-revoke execute on function public.admin_dashboard_stats() from public, anon;
-revoke execute on function public.admin_list_files(text, integer, integer) from public, anon;
-revoke execute on function public.admin_tag_usage() from public, anon;
-
-grant execute on function public.admin_save_article(uuid, jsonb, uuid[], text[], jsonb) to authenticated;
-grant execute on function public.admin_save_project(uuid, jsonb, text[]) to authenticated;
-grant execute on function public.admin_dashboard_stats() to authenticated;
-grant execute on function public.admin_list_files(text, integer, integer) to authenticated;
-grant execute on function public.admin_tag_usage() to authenticated;
+grant execute on function public.admin_save_article(uuid, jsonb, uuid[], text[], jsonb) to web_admin;
+grant execute on function public.admin_save_project(uuid, jsonb, text[]) to web_admin;
+grant execute on function public.admin_dashboard_stats() to web_admin;
+grant execute on function public.admin_list_files(text, integer, integer) to web_admin;
+grant execute on function public.admin_tag_usage() to web_admin;

@@ -13,16 +13,9 @@ import { ProgressBadge, projectPeriod } from '@/features/projects/components/pro
 import { buildMetadata, truncate } from '@/lib/seo/metadata';
 import { breadcrumbJsonLd, projectJsonLd } from '@/lib/seo/structured-data';
 import { publicImageUrl } from '@/lib/storage/public-url';
-import { getProjectBySlug, getSiteProfile, getSitemapEntries } from '@/services/public-content.service';
+import { getProjectBySlug, getSiteProfile } from '@/services/public-content.service';
 import { isValidSlug } from '@/utils/slugify';
 import { safeExternalUrl } from '@/utils/url';
-
-export const revalidate = 300;
-
-export async function generateStaticParams() {
-  const entries = await getSitemapEntries();
-  return entries.projects.map((project) => ({ slug: project.slug }));
-}
 
 async function loadProject(slug: string) {
   return isValidSlug(slug) ? getProjectBySlug(slug) : null;

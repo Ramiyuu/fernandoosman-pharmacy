@@ -2,23 +2,21 @@ import { IMAGE_BUCKETS, type ImageBucket } from '@/config/uploads';
 
 import { isSafeImagePath } from './paths';
 
-function storageBase(): string {
-  return `${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '')}/storage/v1/object/public`;
-}
+/** Images are served by the site itself (src/app/media/[...key]/route.ts) from the private bucket. */
+export const MEDIA_PREFIX = '/media';
 
-/** Public URL for an object in one of the public image buckets. */
+/** Site-relative URL of an uploaded image, or null if the path is not one we generated. */
 export function publicImageUrl(bucket: ImageBucket, path: string | null | undefined): string | null {
   if (!path || !isSafeImagePath(path)) return null;
-  return `${storageBase()}/${bucket}/${path}`;
+  return `${MEDIA_PREFIX}/${bucket}/${path}`;
 }
 
 /**
- * Only images hosted in our own public image buckets may appear inside
- * article content (prevents tracking pixels and mixed content).
+ * Only images uploaded through the admin may appear inside article content
+ * (prevents tracking pixels, hot-linking and mixed content).
  */
 export function isAllowedContentImageUrl(src: string): boolean {
-  const base = storageBase();
-  if (!src.startsWith(`${base}/`)) return false;
-  const [bucket, ...rest] = src.slice(base.length + 1).split('/');
+  if (!src.startsWith(`${MEDIA_PREFIX}/`)) return false;
+  const [bucket, ...rest] = src.slice(MEDIA_PREFIX.length + 1).split('/');
   return (Object.values(IMAGE_BUCKETS) as string[]).includes(bucket) && isSafeImagePath(rest.join('/'));
 }

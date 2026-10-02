@@ -1,9 +1,10 @@
 import 'server-only';
 
 import { asRichTextDoc, type RichTextDoc } from '@/lib/content/rich-text';
-import type { ServerSupabase } from '@/lib/supabase/server';
+import type { Db } from '@/lib/db/client';
+import { sql, type SqlFragment } from '@/lib/db/sql';
 import type { ArticleReference, Paginated } from '@/types/content';
-import type { ContentStatus, FileStatus, FileVisibility } from '@/types/database.types';
+import type { ArticleRow, ContentStatus, FileStatus, FileVisibility } from '@/types/database.types';
 
 import { failQuery } from '../errors';
 
@@ -23,31 +24,34 @@ export interface AdminArticleRow {
   deleted_at: string | null;
 }
 
-const LIST_COLUMNS = 'id, title, slug, status, featured, language, updated_at, published_at, deleted_at';
-
 /** Escapes LIKE wildcards so user input is matched literally. */
-function likePattern(value: string): string {
+export function likePattern(value: string): string {
   return `%${value.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
 }
 
 export async function listAdminArticles(
-  supabase: ServerSupabase,
+  db: Db,
   options: { view: ArticleListView; query?: string; page: number },
 ): Promise<Paginated<AdminArticleRow>> {
-  const from = (options.page - 1) * ADMIN_PAGE_SIZE;
-  let request = supabase
-    .from('articles')
-    .select(LIST_COLUMNS, { count: 'exact' })
-    .order('updated_at', { ascending: false })
-    .range(from, from + ADMIN_PAGE_SIZE - 1);
+  const conditions: SqlFragment[] = [options.view === 'trash' ? sql`deleted_at is not null` : sql`deleted_at is null`];
+  if (options.view !== 'all' && options.view !== 'trash') conditions.push(sql`status = ${options.view}::public.content_status`);
+  if (options.query) conditions.push(sql`title ilike ${likePattern(options.query.slice(0, 100))}`);
+  const where = sql.join(conditions, sql` and `);
 
-  request = options.view === 'trash' ? request.not('deleted_at', 'is', null) : request.is('deleted_at', null);
-  if (options.view !== 'all' && options.view !== 'trash') request = request.eq('status', options.view);
-  if (options.query) request = request.ilike('title', likePattern(options.query.slice(0, 100)));
-
-  const { data, count, error } = await request;
-  if (error) failQuery('admin.articles.list', error);
-  return { total: count ?? 0, items: (data ?? []) as AdminArticleRow[] };
+  try {
+    return await db.transaction(async (tx) => {
+      const items = await tx.many<AdminArticleRow>(sql`
+        select id, title, slug, status, featured, language, updated_at, published_at, deleted_at
+        from public.articles
+        where ${where}
+        order by updated_at desc
+        limit ${ADMIN_PAGE_SIZE} offset ${(options.page - 1) * ADMIN_PAGE_SIZE}`);
+      const { total } = await tx.one<{ total: number }>(sql`select count(*) as total from public.articles where ${where}`);
+      return { total, items };
+    });
+  } catch (error) {
+    failQuery('admin.articles.list', error);
+  }
 }
 
 export interface EditorFile {
@@ -88,65 +92,59 @@ export interface EditorArticle {
   files: EditorFile[];
 }
 
-export async function getArticleForEditor(supabase: ServerSupabase, id: string): Promise<EditorArticle | null> {
-  const { data: article, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
-  if (error) failQuery('admin.articles.get', error);
-  if (!article) return null;
+export async function getArticleForEditor(db: Db, id: string): Promise<EditorArticle | null> {
+  try {
+    return await db.transaction(async (tx) => {
+      const article = await tx.maybeOne<ArticleRow>(sql`
+        select id, title, slug, subtitle, excerpt, content, status, featured, language, translation_of_article_id,
+               category_id, doi, external_url, seo_title, seo_description, cover_image_path, cover_image_alt,
+               reading_time, published_at, updated_at, deleted_at
+        from public.articles where id = ${id}`);
+      if (!article) return null;
 
-  const [topics, articleTags, references, files] = await Promise.all([
-    supabase.from('article_topics').select('topic_id').eq('article_id', id),
-    supabase.from('article_tags').select('tag_id').eq('article_id', id),
-    supabase
-      .from('article_references')
-      .select('id, title, authors, journal, year, doi, url, pmid')
-      .eq('article_id', id)
-      .order('position', { ascending: true }),
-    supabase
-      .from('article_files')
-      .select('id, original_filename, label, size_bytes, visibility, status, created_at')
-      .eq('article_id', id)
-      .eq('kind', 'article_attachment')
-      .order('created_at', { ascending: true }),
-  ]);
-  for (const result of [topics, articleTags, references, files]) {
-    if (result.error) failQuery('admin.articles.relations', result.error);
+      // One connection per transaction: statements run one after another.
+      const topics = await tx.many<{ topic_id: string }>(sql`select topic_id from public.article_topics where article_id = ${id}`);
+      const tags = await tx.many<{ name: string }>(sql`
+        select t.name from public.article_tags atg join public.tags t on t.id = atg.tag_id
+        where atg.article_id = ${id} order by t.name`);
+      const references = await tx.many<ArticleReference>(sql`
+        select id, title, authors, journal, year, doi, url, pmid
+        from public.article_references where article_id = ${id} order by position, created_at`);
+      const files = await tx.many<EditorFile>(sql`
+        select id, original_filename, label, size_bytes, visibility, status, created_at
+        from public.article_files where article_id = ${id} and kind = 'article_attachment' order by created_at`);
+
+      return {
+        id: article.id,
+        title: article.title,
+        slug: article.slug,
+        subtitle: article.subtitle,
+        excerpt: article.excerpt,
+        content: asRichTextDoc(article.content),
+        status: article.status,
+        featured: article.featured,
+        language: article.language === 'pt' ? 'pt' : 'en',
+        translation_of_article_id: article.translation_of_article_id,
+        category_id: article.category_id,
+        doi: article.doi,
+        external_url: article.external_url,
+        seo_title: article.seo_title,
+        seo_description: article.seo_description,
+        cover_image_path: article.cover_image_path,
+        cover_image_alt: article.cover_image_alt,
+        reading_time: article.reading_time,
+        published_at: article.published_at,
+        updated_at: article.updated_at,
+        deleted_at: article.deleted_at,
+        topic_ids: topics.map((row) => row.topic_id),
+        tags: tags.map((row) => row.name),
+        references,
+        files,
+      };
+    });
+  } catch (error) {
+    failQuery('admin.articles.get', error);
   }
-
-  const tagIds = (articleTags.data ?? []).map((row) => row.tag_id);
-  let tagNames: string[] = [];
-  if (tagIds.length > 0) {
-    const { data: tags, error: tagsError } = await supabase.from('tags').select('id, name').in('id', tagIds);
-    if (tagsError) failQuery('admin.articles.tags', tagsError);
-    tagNames = (tags ?? []).map((tag) => tag.name).sort((a, b) => a.localeCompare(b));
-  }
-
-  return {
-    id: article.id,
-    title: article.title,
-    slug: article.slug,
-    subtitle: article.subtitle,
-    excerpt: article.excerpt,
-    content: asRichTextDoc(article.content),
-    status: article.status,
-    featured: article.featured,
-    language: article.language === 'pt' ? 'pt' : 'en',
-    translation_of_article_id: article.translation_of_article_id,
-    category_id: article.category_id,
-    doi: article.doi,
-    external_url: article.external_url,
-    seo_title: article.seo_title,
-    seo_description: article.seo_description,
-    cover_image_path: article.cover_image_path,
-    cover_image_alt: article.cover_image_alt,
-    reading_time: article.reading_time,
-    published_at: article.published_at,
-    updated_at: article.updated_at,
-    deleted_at: article.deleted_at,
-    topic_ids: (topics.data ?? []).map((row) => row.topic_id),
-    tags: tagNames,
-    references: (references.data ?? []) as ArticleReference[],
-    files: (files.data ?? []) as EditorFile[],
-  };
 }
 
 export interface EditorOptions {
@@ -156,20 +154,25 @@ export interface EditorOptions {
   tags: string[];
 }
 
-export async function getEditorOptions(supabase: ServerSupabase, excludeArticleId?: string): Promise<EditorOptions> {
-  const [topics, categories, articles, tags] = await Promise.all([
-    supabase.from('topics').select('id, name').order('sort_order').order('name'),
-    supabase.from('categories').select('id, name').order('sort_order').order('name'),
-    supabase.from('articles').select('id, title, language').is('deleted_at', null).order('title').limit(500),
-    supabase.from('tags').select('name').order('name').limit(500),
-  ]);
-  for (const result of [topics, categories, articles, tags]) {
-    if (result.error) failQuery('admin.articles.options', result.error);
+export async function getEditorOptions(db: Db, excludeArticleId?: string): Promise<EditorOptions> {
+  try {
+    return await db.transaction(async (tx) => {
+      const topics = await tx.many<{ id: string; name: string }>(sql`select id, name from public.topics order by sort_order, name`);
+      const categories = await tx.many<{ id: string; name: string }>(
+        sql`select id, name from public.categories order by sort_order, name`,
+      );
+      const articles = await tx.many<{ id: string; title: string; language: string }>(
+        sql`select id, title, language from public.articles where deleted_at is null order by title limit 500`,
+      );
+      const tags = await tx.many<{ name: string }>(sql`select name from public.tags order by name limit 500`);
+      return {
+        topics,
+        categories,
+        articles: articles.filter((article) => article.id !== excludeArticleId),
+        tags: tags.map((tag) => tag.name),
+      };
+    });
+  } catch (error) {
+    failQuery('admin.articles.options', error);
   }
-  return {
-    topics: topics.data ?? [],
-    categories: categories.data ?? [],
-    articles: (articles.data ?? []).filter((article) => article.id !== excludeArticleId),
-    tags: (tags.data ?? []).map((tag) => tag.name),
-  };
 }

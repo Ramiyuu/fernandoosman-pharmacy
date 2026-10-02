@@ -1,6 +1,7 @@
 import 'server-only';
 
-import type { ServerSupabase } from '@/lib/supabase/server';
+import type { Db } from '@/lib/db/client';
+import { sql } from '@/lib/db/sql';
 import type { ActivityAction, ContentStatus } from '@/types/database.types';
 
 import { failQuery } from '../errors';
@@ -37,39 +38,22 @@ export interface RecentArticle {
   updated_at: string;
 }
 
-export async function getDashboard(supabase: ServerSupabase) {
-  const [stats, recent, activity, profiles] = await Promise.all([
-    supabase.rpc('admin_dashboard_stats'),
-    supabase
-      .from('articles')
-      .select('id, title, status, updated_at')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(6),
-    supabase
-      .from('activity_logs')
-      .select('id, actor_id, action, summary, entity_type, entity_id, created_at')
-      .order('created_at', { ascending: false })
-      .limit(12),
-    supabase.from('profiles').select('id, display_name, email'),
-  ]);
-  if (stats.error) failQuery('admin.dashboard.stats', stats.error);
-  if (recent.error) failQuery('admin.dashboard.recent', recent.error);
-  if (activity.error) failQuery('admin.dashboard.activity', activity.error);
-  if (profiles.error) failQuery('admin.dashboard.profiles', profiles.error);
-
-  const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.display_name || profile.email]));
-  return {
-    stats: stats.data as unknown as DashboardStats,
-    recentArticles: (recent.data ?? []) as RecentArticle[],
-    activity: (activity.data ?? []).map((entry) => ({
-      id: entry.id,
-      action: entry.action,
-      summary: entry.summary,
-      entity_type: entry.entity_type,
-      entity_id: entry.entity_id,
-      created_at: entry.created_at,
-      actor_name: entry.actor_id ? (names.get(entry.actor_id) ?? null) : null,
-    })) satisfies ActivityEntry[],
-  };
+export async function getDashboard(db: Db) {
+  try {
+    return await db.transaction(async (tx) => {
+      const stats = await tx.one<{ value: DashboardStats }>(sql`select public.admin_dashboard_stats() as value`);
+      const recentArticles = await tx.many<RecentArticle>(sql`
+        select id, title, status, updated_at from public.articles
+        where deleted_at is null order by updated_at desc limit 6`);
+      const activity = await tx.many<ActivityEntry>(sql`
+        select l.id, l.action, l.summary, l.entity_type, l.entity_id, l.created_at,
+               nullif(coalesce(nullif(p.display_name, ''), p.email), '') as actor_name
+        from public.activity_logs l
+        left join public.profiles p on p.id = l.actor_id
+        order by l.created_at desc limit 12`);
+      return { stats: stats.value, recentArticles, activity };
+    });
+  } catch (error) {
+    failQuery('admin.dashboard', error);
+  }
 }

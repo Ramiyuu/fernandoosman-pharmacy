@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0600 · Public read functions (RPC)
+-- 0007 · Public read functions
 -- =============================================================================
 -- All functions are SECURITY INVOKER (the default): they run with the
 -- caller's privileges, so RLS still decides what each visitor can see. The
@@ -563,3 +563,22 @@ as $$
     ), '[]'::jsonb)
   )
 $$;
+
+-- -----------------------------------------------------------------------------
+-- Execution privileges (nothing is executable by PUBLIC, see 0001)
+-- -----------------------------------------------------------------------------
+grant execute on function public.article_card_json(uuid) to web_anon, web_admin;
+grant execute on function public.article_detail_json(uuid, boolean) to web_anon, web_admin;
+grant execute on function public.get_article_by_slug(text) to web_anon, web_admin;
+grant execute on function public.filter_published_articles(text, text, text, text, integer) to web_anon, web_admin;
+grant execute on function public.get_published_articles(text, text, text, text, integer, integer, integer) to web_anon, web_admin;
+grant execute on function public.get_featured_article() to web_anon, web_admin;
+grant execute on function public.get_article_filter_options() to web_anon, web_admin;
+grant execute on function public.get_topics_with_counts() to web_anon, web_admin;
+grant execute on function public.get_public_metrics() to web_anon, web_admin;
+grant execute on function public.project_card_json(uuid) to web_anon, web_admin;
+grant execute on function public.get_published_projects(integer, integer) to web_anon, web_admin;
+grant execute on function public.get_project_by_slug(text) to web_anon, web_admin;
+grant execute on function public.build_prefix_tsquery(text) to web_anon, web_admin;
+grant execute on function public.search_content(text, integer, integer) to web_anon, web_admin;
+grant execute on function public.get_sitemap_entries() to web_anon, web_admin;

@@ -42,5 +42,5 @@ yarn-error.log*
 next-env.d.ts
 
 # local test artefacts
-/.mock-supabase/
+/.e2e/
 /test-results/

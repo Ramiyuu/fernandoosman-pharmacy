@@ -1,11 +1,15 @@
-import { Plus } from 'lucide-react';
+import { Pencil, Plus, UserRound } from 'lucide-react';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { buttonVariants } from '@/components/ui/button';
 import { AdminPage, Panel, StatusBadge } from '@/features/admin/components/admin-page';
+import { semesterLabel } from '@/features/profile/components/profile-card';
 import { requireAdminPage } from '@/lib/auth/session';
+import { publicImageUrl } from '@/lib/storage/public-url';
 import { getDashboard } from '@/services/admin/dashboard.admin';
+import { getSiteProfile } from '@/services/public-content.service';
 import type { ActivityAction } from '@/types/database.types';
 import { formatBytes, formatDate, formatDateTime } from '@/utils/format';
 
@@ -34,6 +38,10 @@ const ACTION_LABELS: Record<ActivityAction, string> = {
   settings_updated: 'Changed settings',
   cv_updated: 'Updated CV',
   contact_deleted: 'Deleted message',
+  two_factor_enabled: 'Turned on two-factor authentication',
+  backup_codes_regenerated: 'Generated new backup codes',
+  password_changed: 'Changed password',
+  sessions_revoked: 'Signed out other devices',
 };
 
 function Stat({ label, value, href }: { label: string; value: string | number; href?: string }) {
@@ -54,7 +62,9 @@ function Stat({ label, value, href }: { label: string; value: string | number; h
 
 export default async function DashboardPage() {
   const session = await requireAdminPage();
-  const { stats, recentArticles, activity } = await getDashboard(session.supabase);
+  const [{ stats, recentArticles, activity }, profile] = await Promise.all([getDashboard(session.db), getSiteProfile()]);
+  const photo = publicImageUrl('profile-images', profile?.photo_path);
+  const semester = profile ? semesterLabel(profile) : null;
   const totalStorage = stats.storage.documents_bytes + stats.storage.images_bytes;
   const documentsShare = totalStorage > 0 ? (stats.storage.documents_bytes / totalStorage) * 100 : 0;
 
@@ -77,7 +87,33 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Panel title="Last publication" className="lg:col-span-1">
+        <Panel
+          title="Your public profile"
+          actions={
+            <Link href="/admin/profile" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+              <Pencil aria-hidden="true" /> Edit
+            </Link>
+          }
+        >
+          <div className="flex items-center gap-4">
+            <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-navy-900">
+              {photo ? (
+                <Image src={photo} alt="" fill sizes="64px" className="object-cover" />
+              ) : (
+                <span className="flex size-full items-center justify-center text-navy-200" title="No photo yet">
+                  <UserRound className="size-7" aria-hidden="true" />
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-ink">{profile?.full_name || 'No name yet'}</p>
+              <p className="truncate text-sm text-muted">{profile?.headline || 'Add a headline'}</p>
+              <p className="text-sm text-muted">{semester ?? 'Semester not set'}</p>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title="Last publication">
           {stats.last_publication ? (
             <div>
               <Link href={`/admin/articles/${stats.last_publication.id}`} className="font-medium text-ink hover:underline">
@@ -93,7 +129,7 @@ export default async function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Storage usage" description="Ready files tracked by the database" className="lg:col-span-2">
+        <Panel title="Storage usage" description="Ready files tracked by the database">
           <p className="text-3xl font-semibold text-ink tabular">{formatBytes(totalStorage)}</p>
           <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-mist" role="img" aria-label={`Documents ${Math.round(documentsShare)}%, images ${Math.round(100 - documentsShare)}%`}>
             <span className="bg-navy-700" style={{ width: `${documentsShare}%` }} />

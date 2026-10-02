@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates supabase/seed.sql from the sample content in this folder.
+// Generates db/seed.sql from the sample content in this folder.
 // Usage: npm run seed:generate
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -9,7 +9,7 @@ import { articles } from './articles.mjs';
 import { categories, projects, settings, siteProfile, topics } from './catalog.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outputPath = resolve(here, '../../supabase/seed.sql');
+const outputPath = resolve(here, '../../db/seed.sql');
 
 /** Quotes a value as a standard SQL string literal (standard_conforming_strings = on). */
 const str = (value) => (value === null || value === undefined ? 'null' : `'${String(value).replaceAll("'", "''")}'`);

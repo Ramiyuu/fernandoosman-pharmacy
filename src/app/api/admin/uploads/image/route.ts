@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { IMAGE_BUCKETS, IMAGE_UPLOAD, type ImageBucketKey } from '@/config/uploads';
 import { authorizeAdmin } from '@/lib/auth/session';
+import { sql } from '@/lib/db/sql';
 import { createLogger, describeError } from '@/lib/logger';
 import { detectFileKind, detectImageMime, IMAGE_EXTENSION_BY_MIME } from '@/lib/security/file-signature';
 import { rateLimit } from '@/lib/security/rate-limit';
@@ -10,7 +11,7 @@ import { isSameOriginRequest } from '@/lib/security/request';
 import { createImageObjectPath } from '@/lib/storage/paths';
 import { publicImageUrl } from '@/lib/storage/public-url';
 import { logActivity } from '@/services/activity-log.service';
-import { removePublicImages, uploadPublicImage } from '@/services/storage.service';
+import { removeImages, storeImage } from '@/services/storage.service';
 import { formatBytes } from '@/utils/format';
 import { getExtension, hasBlockedExtension, sanitizeDisplayFilename } from '@/utils/filename';
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   const auth = await authorizeAdmin('files:write');
   if (!auth.ok) return error(auth.error, auth.status);
-  const { supabase, userId } = auth.session;
+  const { db, userId } = auth.session;
 
   const limit = await rateLimit('upload', userId);
   if (!limit.success) return error('Too many uploads in a short time. Wait a few minutes.', 429);
@@ -90,30 +91,22 @@ export async function POST(request: NextRequest) {
   }
 
   const { bucket, path } = createImageObjectPath(bucketKey, IMAGE_EXTENSION_BY_MIME[detectedMime]);
-  const uploaded = await uploadPublicImage(bucket, path, bytes, detectedMime);
+  const uploaded = await storeImage(bucket, path, bytes, detectedMime);
   if (!uploaded) return error('The image could not be stored. Try again.', 502);
 
-  const { data: row, error: insertError } = await supabase
-    .from('media_files')
-    .insert({
-      bucket,
-      storage_path: path,
-      original_filename: displayName,
-      mime_type: detectedMime,
-      size_bytes: bytes.byteLength,
-      width: dimensions.width,
-      height: dimensions.height,
-      uploaded_by: userId,
-    })
-    .select('id')
-    .single();
-  if (insertError || !row) {
+  let row: { id: string };
+  try {
+    row = await db.one<{ id: string }>(sql`
+      insert into public.media_files (bucket, storage_path, original_filename, mime_type, size_bytes, width, height, uploaded_by)
+      values (${bucket}, ${path}, ${displayName}, ${detectedMime}, ${bytes.byteLength}, ${dimensions.width}, ${dimensions.height}, ${userId})
+      returning id`);
+  } catch (insertError) {
     log.error('Could not record image', { error: describeError(insertError) });
-    await removePublicImages(bucket, [path]);
+    await removeImages(bucket, [path]);
     return error('The image could not be saved. Try again.', 500);
   }
 
-  await logActivity(supabase, userId, { action: 'image_uploaded', entityType: 'image', entityId: row.id, summary: displayName });
+  await logActivity(db, userId, { action: 'image_uploaded', entityType: 'image', entityId: row.id, summary: displayName });
 
   return NextResponse.json(
     { id: row.id, bucket, path, url: publicImageUrl(bucket, path), width: dimensions.width, height: dimensions.height },

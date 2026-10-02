@@ -1,86 +1,126 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
 import { describedBy, Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { magicLinkSchema, signInSchema, type MagicLinkInput, type SignInInput } from '@/schemas/auth.schema';
+import { signInSchema, twoFactorSchema, type SignInInput, type TwoFactorInput } from '@/schemas/auth.schema';
 
-import { sendMagicLinkAction, signInAction } from '../actions';
+import { signInAction, verifyTwoFactorAction } from '../actions';
 
-export function LoginForm({ next, magicLinkEnabled, initialError }: { next?: string; magicLinkEnabled: boolean; initialError?: string }) {
-  const [mode, setMode] = useState<'password' | 'link'>('password');
-  const [formError, setFormError] = useState<string | null>(initialError ?? null);
-  const [notice, setNotice] = useState<string | null>(null);
+function ErrorBox({ message }: { message: string | null }) {
+  return message ? (
+    <p id="login-error" role="alert" className="rounded-md bg-danger-50 px-3 py-2 text-sm text-danger-700">
+      {message}
+    </p>
+  ) : null;
+}
 
-  const passwordForm = useForm<SignInInput>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: '', password: '', next },
+function TwoFactorStep({ next, onRestart }: { next?: string; onRestart: (message: string) => void }) {
+  const [formError, setFormError] = useState<string | null>(null);
+  const form = useForm<TwoFactorInput>({
+    resolver: zodResolver(twoFactorSchema),
+    defaultValues: { method: 'totp', code: '', next },
   });
-  const linkForm = useForm<MagicLinkInput>({ resolver: zodResolver(magicLinkSchema), defaultValues: { email: '' } });
+  const method = useWatch({ control: form.control, name: 'method' });
+  const { errors, isSubmitting } = form.formState;
 
-  const submitPassword = passwordForm.handleSubmit(async (values) => {
+  const submit = form.handleSubmit(async (values) => {
     setFormError(null);
-    // On success the action redirects; we only get a result back on failure.
-    const result = await signInAction(values);
+    // On success the action redirects; a result only comes back on failure.
+    const result = await verifyTwoFactorAction(values);
     if (result && !result.ok) {
+      if (result.code === 'UNAUTHENTICATED') return onRestart(result.error);
       setFormError(result.error);
-      passwordForm.resetField('password');
+      form.resetField('code');
+      form.setFocus('code');
     }
   });
 
-  const submitLink = linkForm.handleSubmit(async (values) => {
+  const switchMethod = () => {
+    form.setValue('method', method === 'totp' ? 'backup' : 'totp');
+    form.resetField('code');
+    form.clearErrors();
     setFormError(null);
-    setNotice(null);
-    const result = await sendMagicLinkAction(values);
-    if (result.ok) setNotice(result.message ?? 'Check your inbox.');
-    else setFormError(result.error);
+  };
+
+  return (
+    <form onSubmit={submit} noValidate className="space-y-5" aria-describedby={formError ? 'login-error' : undefined}>
+      <div className="flex gap-3 rounded-md bg-mist px-3 py-3 text-sm text-navy-800">
+        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-teal-700" aria-hidden="true" />
+        <p>
+          {method === 'totp'
+            ? 'Open your authenticator app and enter the 6-digit code for this site.'
+            : 'Enter one of the backup codes you saved when you set up two-factor authentication. Each code works once.'}
+        </p>
+      </div>
+      <Field id="login-code" label={method === 'totp' ? 'Authentication code' : 'Backup code'} error={errors.code?.message}>
+        <Input
+          id="login-code"
+          autoFocus
+          autoComplete="one-time-code"
+          inputMode={method === 'totp' ? 'numeric' : 'text'}
+          maxLength={method === 'totp' ? 6 : 20}
+          className="tabular tracking-[0.2em]"
+          aria-invalid={Boolean(errors.code)}
+          aria-describedby={describedBy('login-code', Boolean(errors.code))}
+          {...form.register('code')}
+        />
+      </Field>
+      <ErrorBox message={formError} />
+      <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+        {isSubmitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
+        Verify and sign in
+      </Button>
+      <Button type="button" variant="link" className="w-full" onClick={switchMethod}>
+        {method === 'totp' ? 'Use a backup code instead' : 'Use the authenticator app instead'}
+      </Button>
+    </form>
+  );
+}
+
+export function LoginForm({ next }: { next?: string }) {
+  const [step, setStep] = useState<'password' | 'two-factor'>('password');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const form = useForm<SignInInput>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: '', password: '', next },
+  });
+  const { errors, isSubmitting } = form.formState;
+
+  const submit = form.handleSubmit(async (values) => {
+    setFormError(null);
+    // Without 2FA set up yet the action redirects; otherwise it asks for the code.
+    const result = await signInAction(values);
+    if (!result) return;
+    if (result.ok) {
+      form.resetField('password');
+      setStep('two-factor');
+      return;
+    }
+    setFormError(result.error);
+    form.resetField('password');
   });
 
-  const errorBox = formError ? (
-    <p id="login-error" role="alert" className="rounded-md bg-danger-50 px-3 py-2 text-sm text-danger-700">
-      {formError}
-    </p>
-  ) : null;
-
-  if (mode === 'link') {
-    const { errors, isSubmitting } = linkForm.formState;
+  if (step === 'two-factor') {
     return (
-      <form onSubmit={submitLink} noValidate className="space-y-5">
-        <Field id="link-email" label="Email" error={errors.email?.message}>
-          <Input
-            id="link-email"
-            type="email"
-            autoComplete="email"
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby={describedBy('link-email', Boolean(errors.email))}
-            {...linkForm.register('email')}
-          />
-        </Field>
-        {errorBox}
-        {notice ? (
-          <p role="status" className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-700">
-            {notice}
-          </p>
-        ) : null}
-        <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-          Email me a sign-in link
-        </Button>
-        <Button variant="link" className="w-full" onClick={() => setMode('password')}>
-          Use password instead
-        </Button>
-      </form>
+      <TwoFactorStep
+        next={next}
+        onRestart={(message) => {
+          setFormError(message);
+          setStep('password');
+        }}
+      />
     );
   }
 
-  const { errors, isSubmitting } = passwordForm.formState;
   return (
-    <form onSubmit={submitPassword} noValidate className="space-y-5" aria-describedby={formError ? 'login-error' : undefined}>
+    <form onSubmit={submit} noValidate className="space-y-5" aria-describedby={formError ? 'login-error' : undefined}>
       <Field id="login-email" label="Email" error={errors.email?.message}>
         <Input
           id="login-email"
@@ -88,7 +128,7 @@ export function LoginForm({ next, magicLinkEnabled, initialError }: { next?: str
           autoComplete="username"
           aria-invalid={Boolean(errors.email)}
           aria-describedby={describedBy('login-email', Boolean(errors.email))}
-          {...passwordForm.register('email')}
+          {...form.register('email')}
         />
       </Field>
       <Field id="login-password" label="Password" error={errors.password?.message}>
@@ -98,20 +138,15 @@ export function LoginForm({ next, magicLinkEnabled, initialError }: { next?: str
           autoComplete="current-password"
           aria-invalid={Boolean(errors.password)}
           aria-describedby={describedBy('login-password', Boolean(errors.password))}
-          {...passwordForm.register('password')}
+          {...form.register('password')}
         />
       </Field>
-      <input type="hidden" {...passwordForm.register('next')} />
-      {errorBox}
+      <input type="hidden" {...form.register('next')} />
+      <ErrorBox message={formError} />
       <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
         {isSubmitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-        Sign in
+        Continue
       </Button>
-      {magicLinkEnabled ? (
-        <Button variant="link" className="w-full" onClick={() => setMode('link')}>
-          Email me a sign-in link instead
-        </Button>
-      ) : null}
     </form>
   );
 }

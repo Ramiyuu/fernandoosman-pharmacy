@@ -34,6 +34,13 @@ export function isSafeImagePath(path: string): boolean {
   return IMAGE_PATH.test(path) && !path.includes('..');
 }
 
+/** Key of an object inside the R2 bucket: <logical bucket>/<path>. */
+export function objectKey(bucket: 'documents' | ImageBucket, path: string): string {
+  const safe = bucket === 'documents' ? isSafePdfPath(path) : isImageBucket(bucket) && isSafeImagePath(path);
+  if (!safe) throw new Error('Refusing to use an unexpected storage path');
+  return `${bucket}/${path}`;
+}
+
 export function isImageBucket(value: string): value is ImageBucket {
   return (Object.values(IMAGE_BUCKETS) as string[]).includes(value);
 }

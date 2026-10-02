@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0100 · Enum types and domains
+-- 0002 · Enum types and domains
 -- =============================================================================
 -- Domains keep format rules in one place so every table validates slugs, URLs
 -- and DOIs the same way, independently of the application layer.
@@ -42,7 +42,11 @@ create type public.activity_action as enum (
   'profile_updated',
   'settings_updated',
   'cv_updated',
-  'contact_deleted'
+  'contact_deleted',
+  'two_factor_enabled',
+  'backup_codes_regenerated',
+  'password_changed',
+  'sessions_revoked'
 );
 
 create domain public.slug as text

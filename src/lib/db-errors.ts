@@ -3,7 +3,7 @@ import { createLogger, describeError } from './logger';
 
 const log = createLogger('db');
 
-/** Maps PostgREST/Postgres errors to user-facing messages without leaking internals. */
+/** Maps Postgres errors (SQLSTATE codes) to user-facing messages without leaking internals. */
 export function failFromDbError(operation: string, error: unknown) {
   const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : '';
   log.error(`${operation} failed`, { error: describeError(error) });
@@ -20,7 +20,6 @@ export function failFromDbError(operation: string, error: unknown) {
     case '42501':
       return fail('You do not have permission to do this.', { code: 'FORBIDDEN' });
     case 'P0002':
-    case 'PGRST116':
       return fail('This item no longer exists.', { code: 'NOT_FOUND' });
     default:
       return fail('The database could not complete the request. Try again in a moment.');

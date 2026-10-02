@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { deleteFileAction, updateFileAction, type UploadedFile } from '@/features/files/actions';
+import { deleteFileAction, updateFileAction } from '@/features/files/actions';
+import type { UploadedFile } from '@/features/files/types';
 import { usePdfUploads } from '@/features/files/client/use-pdf-uploads';
 import { PdfDropzone } from '@/features/files/components/pdf-dropzone';
 import type { EditorFile } from '@/services/admin/articles.admin';
@@ -52,6 +53,10 @@ export function AttachmentsPanel({ articleId, initialFiles, maxBytes }: Attachme
         <p className="text-sm text-muted">
           PDFs are stored privately. Public files can be downloaded from the published article through short-lived links;
           private files are visible only to admins.
+        </p>
+        <p className="mt-1 text-sm text-muted">
+          Do not upload documents that identify patients or contain other people&apos;s personal data (LGPD). Remove names,
+          record numbers and similar details first.
         </p>
       </header>
       <div className="space-y-4 p-5">

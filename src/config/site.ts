@@ -16,8 +16,12 @@ export const ADMIN_NAV = [
   { href: '/admin/files', label: 'Files', icon: 'files' },
   { href: '/admin/messages', label: 'Messages', icon: 'inbox' },
   { href: '/admin/profile', label: 'Profile & CV', icon: 'user' },
+  { href: '/admin/security', label: 'Security', icon: 'shield-check' },
   { href: '/admin/settings', label: 'Settings', icon: 'settings' },
 ] as const;
+
+/** Name shown in authenticator apps (2FA) and as the admin area's title. */
+export const ADMIN_APP_NAME = 'Fernando Osman · Portfolio';
 
 /** Public pages are regenerated at most every 5 minutes, and immediately after admin changes. */
 export const PUBLIC_REVALIDATE_SECONDS = 300;

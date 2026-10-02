@@ -1,9 +1,11 @@
 @import 'tailwindcss';
 
 /* -----------------------------------------------------------------------------
- * Design tokens
- * A deliberately small palette: navy for text and structure, blue for actions,
- * teal as the single accent (data marks, focus), greys for surfaces and rules.
+ * Design tokens — brand identity (identidade_fernandoosman_portfolio/)
+ *   Navy  #0B1F44  trust, depth: text and structure
+ *   Blue  #2563EB  knowledge, progress: actions and links
+ *   Teal  #14B8A6  innovation, data: the single accent (marks, focus, dots)
+ *   White #FFFFFF and Light gray #E5E7EB: surfaces and rules
  * Tailwind's default colours are disabled so nothing off-palette slips in.
  * -------------------------------------------------------------------------- */
 @theme {
@@ -13,34 +15,37 @@
   --color-white: #ffffff;
   --color-black: #000000;
 
-  --color-ink: #0b1b33;
-  --color-navy-950: #071226;
-  --color-navy-900: #0b1b33;
-  --color-navy-800: #12284a;
-  --color-navy-700: #1b3a68;
-  --color-navy-200: #c9d4e4;
-  --color-navy-100: #e3e9f2;
-  --color-navy-50: #f1f4f9;
+  --color-ink: #0b1f44;
+  --color-navy-950: #071531;
+  --color-navy-900: #0b1f44;
+  --color-navy-800: #142b57;
+  --color-navy-700: #1e3a73;
+  --color-navy-200: #c7d2e5;
+  --color-navy-100: #e3e9f4;
+  --color-navy-50: #f2f5fa;
 
-  --color-azure-800: #123f80;
-  --color-azure-700: #164c99;
-  --color-azure-600: #1f5fbf;
-  --color-azure-500: #2f73d6;
-  --color-azure-100: #dce7f8;
-  --color-azure-50: #eef4fc;
+  --color-azure-800: #1e40af;
+  --color-azure-700: #1d4ed8;
+  --color-azure-600: #2563eb;
+  --color-azure-500: #3b82f6;
+  --color-azure-100: #dbe7fe;
+  --color-azure-50: #eff4ff;
 
-  --color-teal-700: #0a6e78;
-  --color-teal-600: #0b7f8a;
-  --color-teal-500: #0e9aa7;
-  --color-teal-200: #a9dfe4;
-  --color-teal-100: #d5f0f2;
-  --color-teal-50: #ecf8f9;
+  --color-teal-700: #0f766e;
+  --color-teal-600: #0d9488;
+  --color-teal-500: #14b8a6;
+  --color-teal-200: #99f6e4;
+  --color-teal-100: #ccfbf1;
+  --color-teal-50: #f0fdfa;
 
-  --color-mist: #f3f5f8;
-  --color-rule: #dce2ea;
-  --color-rule-strong: #c3ccd8;
-  --color-muted: #566170;
-  --color-subtle: #8792a2;
+  /* The logo's blue-to-cyan sweep, used only for the brand gradient. */
+  --color-cyan-400: #22d3ee;
+
+  --color-mist: #f5f7fa;
+  --color-rule: #e5e7eb;
+  --color-rule-strong: #d1d5db;
+  --color-muted: #545f70;
+  --color-subtle: #8a93a3;
 
   --color-success-700: #1b6e45;
   --color-success-50: #e8f5ee;
@@ -50,7 +55,7 @@
   --color-danger-600: #d0302a;
   --color-danger-50: #fdecea;
 
-  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -59,8 +64,8 @@
   --radius-lg: 10px;
   --radius-xl: 14px;
 
-  --shadow-raise: 0 1px 2px rgb(11 27 51 / 0.06), 0 8px 24px -12px rgb(11 27 51 / 0.18);
-  --shadow-overlay: 0 24px 64px -16px rgb(7 18 38 / 0.35);
+  --shadow-raise: 0 1px 2px rgb(11 31 68 / 0.06), 0 8px 24px -12px rgb(11 31 68 / 0.18);
+  --shadow-overlay: 0 24px 64px -16px rgb(7 21 49 / 0.35);
 
   --container-prose: 68ch;
   --container-page: 76rem;
@@ -146,9 +151,22 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 
-@utility display-condensed {
-  font-stretch: 80%;
-  font-variation-settings: 'wdth' 80;
+/* Page and section titles: Montserrat, tight tracking. */
+@utility display-title {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* The brand wordmark treatment: geometric capitals with open tracking. */
+@utility wordmark {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 500;
+}
+
+/* The logo's sweep from blue to cyan; used sparingly (hairlines, marks). */
+@utility brand-gradient {
+  background-image: linear-gradient(90deg, var(--color-azure-600), var(--color-cyan-400) 70%, var(--color-teal-500));
 }
 
 @utility page-gutter {

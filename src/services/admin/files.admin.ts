@@ -1,6 +1,7 @@
 import 'server-only';
 
-import type { ServerSupabase } from '@/lib/supabase/server';
+import type { Db } from '@/lib/db/client';
+import { sql } from '@/lib/db/sql';
 import type { ContentStatus, FileKind, FileStatus, FileVisibility } from '@/types/database.types';
 
 import { failQuery } from '../errors';
@@ -32,18 +33,23 @@ export interface AdminImage {
   created_at: string;
 }
 
-export async function listDocuments(supabase: ServerSupabase): Promise<{ total: number; items: AdminDocument[] }> {
-  const { data, error } = await supabase.rpc('admin_list_files', { p_limit: 200, p_offset: 0 });
-  if (error) failQuery('admin.files.documents', error);
-  return data as unknown as { total: number; items: AdminDocument[] };
+export async function listDocuments(db: Db): Promise<{ total: number; items: AdminDocument[] }> {
+  try {
+    const row = await db.one<{ value: { total: number; items: AdminDocument[] } }>(
+      sql`select public.admin_list_files(p_limit => 200, p_offset => 0) as value`,
+    );
+    return row.value;
+  } catch (error) {
+    failQuery('admin.files.documents', error);
+  }
 }
 
-export async function listImages(supabase: ServerSupabase): Promise<AdminImage[]> {
-  const { data, error } = await supabase
-    .from('media_files')
-    .select('id, bucket, storage_path, original_filename, mime_type, size_bytes, width, height, created_at')
-    .order('created_at', { ascending: false })
-    .limit(200);
-  if (error) failQuery('admin.files.images', error);
-  return data ?? [];
+export async function listImages(db: Db): Promise<AdminImage[]> {
+  try {
+    return await db.many<AdminImage>(sql`
+      select id, bucket, storage_path, original_filename, mime_type, size_bytes, width, height, created_at
+      from public.media_files order by created_at desc limit 200`);
+  } catch (error) {
+    failQuery('admin.files.images', error);
+  }
 }

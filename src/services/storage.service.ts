@@ -1,128 +1,85 @@
 import 'server-only';
 
-import { PDF_UPLOAD } from '@/config/uploads';
+import { PDF_UPLOAD, type ImageBucket } from '@/config/uploads';
 import { createLogger, describeError } from '@/lib/logger';
-import { detectFileKind, hasPdfTrailer, isPdf } from '@/lib/security/file-signature';
-import { isImageBucket, isSafeImagePath, isSafePdfPath } from '@/lib/storage/paths';
-import { createServiceSupabase } from '@/lib/supabase/admin';
+import { objectKey } from '@/lib/storage/paths';
+import { contentDisposition, deleteObject, presignGetUrl, putObject } from '@/lib/storage/r2';
 
 /**
- * All Storage access goes through here. Callers MUST authorise the request
- * first: these helpers use the service role, which bypasses Storage RLS.
+ * All object storage access goes through here. Callers MUST authorise the
+ * request first: these helpers use the server's R2 credentials.
  */
 
 const log = createLogger('storage');
-const DOCUMENTS = PDF_UPLOAD.bucket;
+const DOCUMENTS = 'documents' as const;
 
-function assertPdfPath(path: string) {
-  if (!isSafePdfPath(path)) throw new Error('Refusing to use an unexpected storage path');
-}
-
-/** Short-lived signed URL for a private document. Never persist the result. */
+/**
+ * Short-lived signed URL for a stored PDF (60 s). Never persist the result.
+ * `downloadName` makes the browser save the file instead of displaying it.
+ */
 export async function createDocumentSignedUrl(path: string, downloadName?: string): Promise<string | null> {
-  assertPdfPath(path);
-  const { data, error } = await createServiceSupabase()
-    .storage.from(DOCUMENTS)
-    .createSignedUrl(path, PDF_UPLOAD.signedUrlTtlSeconds, downloadName ? { download: downloadName } : undefined);
-  if (error || !data) {
+  try {
+    return await presignGetUrl(objectKey(DOCUMENTS, path), {
+      expiresInSeconds: PDF_UPLOAD.signedUrlTtlSeconds,
+      contentType: 'application/pdf',
+      disposition: downloadName ? contentDisposition('attachment', downloadName) : 'inline',
+    });
+  } catch (error) {
     log.error('Could not sign document URL', { error: describeError(error) });
     return null;
   }
-  return data.signedUrl;
 }
 
-/** One-time upload URL for a server-chosen path (valid ~2h, no overwrite). */
-export async function createDocumentUploadUrl(path: string): Promise<{ signedUrl: string } | null> {
-  assertPdfPath(path);
-  const { data, error } = await createServiceSupabase().storage.from(DOCUMENTS).createSignedUploadUrl(path, { upsert: false });
-  if (error || !data) {
-    log.error('Could not create signed upload URL', { error: describeError(error) });
-    return null;
+export async function storeDocument(path: string, bytes: Uint8Array): Promise<boolean> {
+  try {
+    await putObject(objectKey(DOCUMENTS, path), bytes, { contentType: 'application/pdf', cacheControl: 'private, no-store' });
+    return true;
+  } catch (error) {
+    log.error('Document upload failed', { error: describeError(error) });
+    return false;
   }
-  return { signedUrl: data.signedUrl };
+}
+
+async function removeAll(keys: string[], label: string): Promise<boolean> {
+  const results = await Promise.allSettled(keys.map((key) => deleteObject(key)));
+  const failed = results.filter((result) => result.status === 'rejected');
+  if (failed.length > 0) {
+    log.error(`Could not remove ${label}`, { failed: failed.length, error: describeError((failed[0] as PromiseRejectedResult).reason) });
+  }
+  return failed.length === 0;
 }
 
 export async function removeDocuments(paths: string[]): Promise<boolean> {
-  const safe = paths.filter(isSafePdfPath);
-  if (safe.length === 0) return true;
-  const { error } = await createServiceSupabase().storage.from(DOCUMENTS).remove(safe);
-  if (error) log.error('Could not remove documents', { error: describeError(error), count: safe.length });
-  return !error;
-}
-
-async function readRange(url: string, range: string, maxBytes: number): Promise<Uint8Array | null> {
-  const response = await fetch(url, { headers: { Range: range }, cache: 'no-store' });
-  if (!response.ok || !response.body) return null;
-
-  // If the server ignored the Range header, stream and keep only what we need.
-  const keepTail = range.startsWith('bytes=-');
-  const reader = response.body.getReader();
-  let buffer = new Uint8Array(0);
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done || !value) break;
-    const merged = new Uint8Array(buffer.length + value.length);
-    merged.set(buffer);
-    merged.set(value, buffer.length);
-    buffer = keepTail ? merged.slice(-maxBytes) : merged;
-    if (!keepTail && buffer.length >= maxBytes) {
-      await reader.cancel();
-      break;
+  const keys: string[] = [];
+  for (const path of paths) {
+    try {
+      keys.push(objectKey(DOCUMENTS, path));
+    } catch {
+      log.warn('Skipped an unexpected document path');
     }
   }
-  return keepTail ? buffer.slice(-maxBytes) : buffer.slice(0, maxBytes);
+  return removeAll(keys, 'documents');
 }
 
-export type PdfVerification =
-  | { ok: true; size: number }
-  | { ok: false; reason: 'missing' | 'too_large' | 'empty' | 'wrong_type' | 'not_pdf' | 'malformed' };
-
-/**
- * Verifies an object uploaded directly by the browser before it is trusted:
- * real size from Storage metadata, stored content type, PDF signature at byte
- * 0 (blocks renamed executables, scripts and HTML) and the %%EOF trailer.
- */
-export async function verifyUploadedPdf(path: string): Promise<PdfVerification> {
-  assertPdfPath(path);
-  const bucket = createServiceSupabase().storage.from(DOCUMENTS);
-
-  const { data: info, error } = await bucket.info(path);
-  if (error || !info) return { ok: false, reason: 'missing' };
-
-  const size = Number(info.size ?? 0);
-  if (!Number.isFinite(size) || size <= 0) return { ok: false, reason: 'empty' };
-  if (size > PDF_UPLOAD.maxBytes) return { ok: false, reason: 'too_large' };
-  if (info.contentType && info.contentType !== 'application/pdf') return { ok: false, reason: 'wrong_type' };
-
-  const signedUrl = await createDocumentSignedUrl(path);
-  if (!signedUrl) return { ok: false, reason: 'missing' };
-
-  const head = await readRange(signedUrl, 'bytes=0-1023', 1024);
-  if (!head || !isPdf(head)) {
-    log.warn('Rejected upload: missing PDF signature', { detected: head ? detectFileKind(head) : 'unreadable' });
-    return { ok: false, reason: 'not_pdf' };
+export async function storeImage(bucket: ImageBucket, path: string, bytes: Uint8Array, contentType: string): Promise<boolean> {
+  try {
+    // Object names are random and never reused, so images can be cached forever.
+    await putObject(objectKey(bucket, path), bytes, { contentType, cacheControl: 'public, max-age=31536000, immutable' });
+    return true;
+  } catch (error) {
+    log.error('Image upload failed', { error: describeError(error) });
+    return false;
   }
-
-  const tail = await readRange(signedUrl, 'bytes=-2048', 2048);
-  if (!tail || !hasPdfTrailer(tail)) return { ok: false, reason: 'malformed' };
-
-  return { ok: true, size };
 }
 
-export async function uploadPublicImage(bucket: string, path: string, bytes: Uint8Array, contentType: string): Promise<boolean> {
-  if (!isImageBucket(bucket) || !isSafeImagePath(path)) throw new Error('Refusing to use an unexpected image path');
-  const { error } = await createServiceSupabase()
-    .storage.from(bucket)
-    .upload(path, bytes, { contentType, upsert: false, cacheControl: '31536000' });
-  if (error) log.error('Image upload failed', { error: describeError(error) });
-  return !error;
-}
-
-export async function removePublicImages(bucket: string, paths: string[]): Promise<boolean> {
-  if (!isImageBucket(bucket)) return false;
-  const safe = paths.filter(isSafeImagePath);
-  if (safe.length === 0) return true;
-  const { error } = await createServiceSupabase().storage.from(bucket).remove(safe);
-  if (error) log.error('Could not remove images', { error: describeError(error) });
-  return !error;
+export async function removeImages(bucket: ImageBucket, paths: string[]): Promise<boolean> {
+  const keys: string[] = [];
+  for (const path of paths) {
+    try {
+      keys.push(objectKey(bucket, path));
+    } catch {
+      log.warn('Skipped an unexpected image path');
+    }
+  }
+  return removeAll(keys, 'images');
 }

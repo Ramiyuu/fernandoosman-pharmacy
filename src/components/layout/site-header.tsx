@@ -1,6 +1,8 @@
 import { Search } from 'lucide-react';
 import Link from 'next/link';
 
+import { LogoMark, Wordmark } from '@/components/brand/brand';
+
 import { Container } from './container';
 import { MobileNav } from './mobile-nav';
 import { NavLinks } from './nav-links';
@@ -9,9 +11,9 @@ export function SiteHeader({ siteName }: { siteName: string }) {
   return (
     <header className="sticky top-0 z-40 border-b border-rule bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       <Container className="flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="group flex items-center gap-2.5 rounded-md" aria-label={`${siteName}, home`}>
-          <Monogram />
-          <span className="text-[1.0625rem] font-semibold tracking-tight text-ink">{siteName}</span>
+        <Link href="/" className="flex min-w-0 items-center gap-3 rounded-md" aria-label={`${siteName}, home`}>
+          <LogoMark height={28} priority />
+          <Wordmark name={siteName} className="truncate text-[0.6875rem] sm:text-[0.8125rem]" />
         </Link>
         <nav aria-label="Main" className="flex items-center gap-1">
           <NavLinks />
@@ -26,19 +28,5 @@ export function SiteHeader({ siteName }: { siteName: string }) {
         </nav>
       </Container>
     </header>
-  );
-}
-
-/** A small confidence-interval glyph: point estimate with whiskers. */
-function Monogram() {
-  return (
-    <span className="inline-flex size-8 items-center justify-center rounded-md bg-navy-900" aria-hidden="true">
-      <svg viewBox="0 0 24 24" className="size-5">
-        <line x1="4" y1="12" x2="20" y2="12" stroke="#a9dfe4" strokeWidth="1.5" />
-        <line x1="4" y1="8.5" x2="4" y2="15.5" stroke="#a9dfe4" strokeWidth="1.5" />
-        <line x1="20" y1="8.5" x2="20" y2="15.5" stroke="#a9dfe4" strokeWidth="1.5" />
-        <rect x="9" y="9" width="6" height="6" fill="#ffffff" />
-      </svg>
-    </span>
   );
 }

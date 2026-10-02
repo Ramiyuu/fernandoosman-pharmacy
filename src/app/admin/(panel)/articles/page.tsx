@@ -42,7 +42,7 @@ export default async function AdminArticlesPage({ searchParams }: PageProps<'/ad
   const query = (Array.isArray(params.q) ? params.q[0] : (params.q ?? '')).trim().slice(0, 100);
   const page = parsePageParam(params.page);
 
-  const result = await listAdminArticles(session.supabase, { view, query, page });
+  const result = await listAdminArticles(session.db, { view, query, page });
   const totalPages = Math.max(1, Math.ceil(result.total / ADMIN_PAGE_SIZE));
 
   return (

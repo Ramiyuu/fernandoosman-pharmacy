@@ -24,7 +24,7 @@ export function absoluteUrl(path: string): string {
 /** Consistent title/description/canonical/Open Graph/Twitter metadata for every page. */
 export function buildMetadata(input: PageMetadataInput): Metadata {
   const canonical = absoluteUrl(input.path);
-  const images = input.image ? [{ url: input.image }] : undefined;
+  const images = input.image ? [{ url: absoluteUrl(input.image) }] : undefined;
 
   return {
     title: input.absoluteTitle ? { absolute: input.title } : input.title,

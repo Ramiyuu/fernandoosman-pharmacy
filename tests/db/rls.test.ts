@@ -27,19 +27,6 @@ const expectDenied = async (promise: Promise<unknown>) => {
 };
 
 describe('migrations and seed', () => {
-  it('creates the expected buckets with a private documents bucket', async () => {
-    const buckets = await rows<{ id: string; public: boolean; file_size_limit: number; allowed_mime_types: string[] }>(
-      db,
-      'select id, public, file_size_limit, allowed_mime_types from storage.buckets order by id',
-    );
-    const documents = buckets.find((bucket) => bucket.id === 'documents');
-    expect(documents).toMatchObject({ public: false, file_size_limit: 31457280, allowed_mime_types: ['application/pdf'] });
-    expect(buckets.map((bucket) => bucket.id)).toEqual(['article-images', 'documents', 'profile-images', 'project-images']);
-    for (const bucket of buckets) {
-      expect(bucket.allowed_mime_types).not.toContain('image/svg+xml');
-    }
-  });
-
   it('enables RLS on every table in the public schema', async () => {
     const tables = await rows<{ relname: string; relrowsecurity: boolean }>(
       db,
@@ -53,11 +40,131 @@ describe('migrations and seed', () => {
     const [profile] = await rows<{ role: string | null }>(db, 'select role from public.profiles where id = $1', [noRole.id]);
     expect(profile.role).toBeNull();
   });
+
+  it('does not let any web role bypass RLS or own a table', async () => {
+    const roles = await rows<{ rolname: string; rolsuper: boolean; rolbypassrls: boolean; rolcanlogin: boolean }>(
+      db,
+      "select rolname, rolsuper, rolbypassrls, rolcanlogin from pg_roles where rolname like 'web\\_%' order by rolname",
+    );
+    expect(roles.map((role) => role.rolname)).toEqual(['web_admin', 'web_anon', 'web_server']);
+    expect(roles.every((role) => !role.rolsuper && !role.rolbypassrls && !role.rolcanlogin)).toBe(true);
+
+    const owned = await rows<{ relname: string }>(
+      db,
+      "select c.relname from pg_class c join pg_roles r on r.oid = c.relowner where r.rolname like 'web\\_%'",
+    );
+    expect(owned).toEqual([]);
+  });
+
+  it('runs no function as PUBLIC', async () => {
+    const executable = await rows<{ proname: string }>(
+      db,
+      `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname in ('public', 'private', 'auth') and has_function_privilege('public', p.oid, 'execute')`,
+    );
+    expect(executable).toEqual([]);
+  });
+});
+
+describe('authentication data', () => {
+  it('is unreachable for visitors and admins (content roles)', async () => {
+    for (const [role, user] of [['web_anon', null], ['web_admin', admin]] as const) {
+      await actAs(db, role, user, async () => {
+        await expectDenied(db.query('select * from auth."user"'));
+        await expectDenied(db.query('select * from auth.account'));
+        await expectDenied(db.query('select * from auth.session'));
+        await expectDenied(db.query('select * from auth."twoFactor"'));
+      });
+    }
+  });
+
+  it('is reachable by the server role, which cannot read content directly', async () => {
+    await actAs(db, 'web_server', null, async () => {
+      await expect(db.query('select count(*) from auth."user"')).resolves.toBeTruthy();
+      await expectDenied(db.query('select * from public.articles'));
+      await expectDenied(db.query('select * from public.contacts'));
+      await expectDenied(db.query("update public.profiles set role = 'admin'"));
+    });
+  });
+});
+
+describe('the website login role', () => {
+  beforeAll(async () => {
+    await db.exec('create role portfolio_app_test login inherit; grant web_server to portfolio_app_test;');
+  });
+
+  it('can switch to the web roles but holds none of their privileges', async () => {
+    await db.exec('set role portfolio_app_test');
+    try {
+      await expectDenied(db.query('select * from public.articles'));
+      await expect(db.query('select count(*) from auth.session')).resolves.toBeTruthy();
+      await db.exec('set role web_anon');
+      const visible = await rows<{ status: string }>(db, 'select status from public.articles');
+      expect(visible.every((row) => row.status === 'published')).toBe(true);
+    } finally {
+      await db.exec('reset role');
+    }
+  });
+
+  it('cannot change the schema', async () => {
+    await db.exec('set role portfolio_app_test');
+    try {
+      await expectDenied(db.query('create table public.evil (id int)'));
+      await expect(db.query('drop table public.articles')).rejects.toThrow(/must be owner/i);
+      await expect(db.query('alter table public.articles disable row level security')).rejects.toThrow(/must be owner/i);
+      await expectDenied(db.query('select * from private.rate_limits'));
+    } finally {
+      await db.exec('reset role');
+    }
+  });
+});
+
+describe('contact messages', () => {
+  it('are stored by the server role, which cannot read them back', async () => {
+    await actAs(db, 'web_server', null, async () => {
+      await db.query("insert into public.contacts (name, email, message) values ('Ana', 'ana@example.com', 'Olá')");
+      await expectDenied(db.query('select * from public.contacts'));
+      await expect(
+        db.query("insert into public.contacts (name, email, message, status) values ('A', 'a@example.com', 'x', 'archived')"),
+      ).rejects.toThrow(/row-level security/i);
+    });
+  });
+
+  it('are purged after the retention period (never less than 30 days)', async () => {
+    await db.query(
+      `insert into public.contacts (name, email, message, created_at) values
+         ('Old', 'old@example.com', 'x', now() - interval '400 days'),
+         ('Recent', 'recent@example.com', 'x', now() - interval '20 days')`,
+    );
+    const [{ purged }] = await actAs(db, 'web_server', null, () =>
+      rows<{ purged: number }>(db, 'select private.purge_expired_contacts(1) as purged'),
+    );
+    expect(purged).toBe(1);
+    const remaining = await rows<{ name: string }>(db, 'select name from public.contacts order by name');
+    expect(remaining.map((row) => row.name)).toEqual(['Ana', 'Recent']);
+  });
+});
+
+describe('rate limiting', () => {
+  it('blocks after the limit within the window and reports when to retry', async () => {
+    const results = await actAs(db, 'web_server', null, async () => {
+      const outcomes: Array<{ allowed: boolean; retry_after_seconds: number }> = [];
+      for (let i = 0; i < 4; i += 1) {
+        outcomes.push((await rows<{ allowed: boolean; retry_after_seconds: number }>(
+          db,
+          "select * from private.consume_rate_limit('test:key', 3, 600)",
+        ))[0]);
+      }
+      return outcomes;
+    });
+    expect(results.map((result) => result.allowed)).toEqual([true, true, true, false]);
+    expect(results[3].retry_after_seconds).toBeGreaterThan(500);
+  });
 });
 
 describe('anonymous visitors', () => {
   it('see only published, non-deleted articles', async () => {
-    const result = await actAs(db, 'anon', null, () =>
+    const result = await actAs(db, 'web_anon', null, () =>
       rows<{ slug: string; status: string }>(db, 'select slug, status from public.articles'),
     );
     expect(result.length).toBe(5);
@@ -67,7 +174,7 @@ describe('anonymous visitors', () => {
 
   it('cannot read drafts through RPCs either', async () => {
     const [draft] = await rows<{ id: string }>(db, 'select id from public.articles where slug = $1', [DRAFT_SLUG]);
-    const result = await actAs(db, 'anon', null, async () => ({
+    const result = await actAs(db, 'web_anon', null, async () => ({
       bySlug: (await rows<{ value: unknown }>(db, 'select public.get_article_by_slug($1) as value', [DRAFT_SLUG]))[0].value,
       byId: (await rows<{ value: unknown }>(db, 'select public.article_detail_json($1, true) as value', [draft.id]))[0].value,
       card: (await rows<{ value: unknown }>(db, 'select public.article_card_json($1) as value', [draft.id]))[0].value,
@@ -76,7 +183,7 @@ describe('anonymous visitors', () => {
   });
 
   it('cannot write any content table', async () => {
-    await actAs(db, 'anon', null, async () => {
+    await actAs(db, 'web_anon', null, async () => {
       await expectDenied(db.query("insert into public.articles (title, slug) values ('x', 'x')"));
       await expectDenied(db.query("update public.articles set title = 'hacked'"));
       await expectDenied(db.query('delete from public.articles'));
@@ -87,7 +194,7 @@ describe('anonymous visitors', () => {
   });
 
   it('cannot read administrative tables', async () => {
-    await actAs(db, 'anon', null, async () => {
+    await actAs(db, 'web_anon', null, async () => {
       await expectDenied(db.query('select * from public.profiles'));
       await expectDenied(db.query('select * from public.contacts'));
       await expectDenied(db.query('select * from public.activity_logs'));
@@ -96,7 +203,7 @@ describe('anonymous visitors', () => {
   });
 
   it('cannot call admin RPCs', async () => {
-    await actAs(db, 'anon', null, async () => {
+    await actAs(db, 'web_anon', null, async () => {
       await expectDenied(db.query('select public.admin_dashboard_stats()'));
       await expectDenied(db.query("select public.admin_save_article(null, '{}'::jsonb)"));
       await expectDenied(db.query('select public.admin_list_files()'));
@@ -104,7 +211,7 @@ describe('anonymous visitors', () => {
   });
 
   it('get computed metrics', async () => {
-    const [{ metrics }] = await actAs(db, 'anon', null, () =>
+    const [{ metrics }] = await actAs(db, 'web_anon', null, () =>
       rows<{ metrics: Record<string, unknown> }>(db, 'select public.get_public_metrics() as metrics'),
     );
     expect(metrics).toMatchObject({
@@ -119,7 +226,7 @@ describe('anonymous visitors', () => {
   });
 
   it('can filter and paginate published articles', async () => {
-    const [{ page }] = await actAs(db, 'anon', null, () =>
+    const [{ page }] = await actAs(db, 'web_anon', null, () =>
       rows<{ page: { total: number; items: Array<{ slug: string; tags: unknown[] }> } }>(
         db,
         "select public.get_published_articles(p_topic => 'biostatistics', p_limit => 2, p_offset => 0) as page",
@@ -131,7 +238,7 @@ describe('anonymous visitors', () => {
   });
 
   it('can search with full-text search and survives hostile input', async () => {
-    const [{ result }] = await actAs(db, 'anon', null, () =>
+    const [{ result }] = await actAs(db, 'web_anon', null, () =>
       rows<{ result: { total: number; items: Array<{ slug: string; headline: string }> } }>(
         db,
         "select public.search_content('hazard rat') as result",
@@ -142,24 +249,24 @@ describe('anonymous visitors', () => {
 
     const hostile = ["'); drop table public.articles; --", '!!&&||:*()', '%_\\', '   ', 'a'.repeat(5000)];
     for (const query of hostile) {
-      await actAs(db, 'anon', null, () => db.query('select public.search_content($1)', [query]));
+      await actAs(db, 'web_anon', null, () => db.query('select public.search_content($1)', [query]));
     }
     const [{ count }] = await rows<{ count: number }>(db, 'select count(*)::int as count from public.articles');
     expect(count).toBe(6);
   });
 
   it('can only read public settings', async () => {
-    const result = await actAs(db, 'anon', null, () => rows<{ key: string }>(db, 'select key from public.settings'));
+    const result = await actAs(db, 'web_anon', null, () => rows<{ key: string }>(db, 'select key from public.settings'));
     await db.query("insert into public.settings (key, value, is_public) values ('private.test', '{}'::jsonb, false)");
-    const after = await actAs(db, 'anon', null, () => rows<{ key: string }>(db, 'select key from public.settings'));
+    const after = await actAs(db, 'web_anon', null, () => rows<{ key: string }>(db, 'select key from public.settings'));
     expect(after.map((row) => row.key)).toEqual(result.map((row) => row.key));
     expect(after.map((row) => row.key)).not.toContain('private.test');
   });
 });
 
-describe('authenticated users without a role', () => {
+describe('signed-in users without a role', () => {
   it('are treated like visitors', async () => {
-    await actAs(db, 'authenticated', noRole, async () => {
+    await actAs(db, 'web_admin', noRole, async () => {
       const visible = await rows<{ status: string }>(db, 'select status from public.articles');
       expect(visible.every((row) => row.status === 'published')).toBe(true);
       await expect(db.query("insert into public.articles (title, slug) values ('x', 'x-new')")).rejects.toThrow(
@@ -172,7 +279,7 @@ describe('authenticated users without a role', () => {
   });
 
   it('cannot grant themselves a role', async () => {
-    await actAs(db, 'authenticated', noRole, async () => {
+    await actAs(db, 'web_admin', noRole, async () => {
       const result = await db.query("update public.profiles set role = 'admin' where id = $1", [noRole.id]);
       expect(result.affectedRows).toBe(0);
     });
@@ -183,7 +290,7 @@ describe('authenticated users without a role', () => {
 
 describe('admins', () => {
   it('can read drafts and dashboard stats', async () => {
-    await actAs(db, 'authenticated', admin, async () => {
+    await actAs(db, 'web_admin', admin, async () => {
       const all = await rows<{ slug: string }>(db, 'select slug from public.articles');
       expect(all.map((row) => row.slug)).toContain(DRAFT_SLUG);
       const [{ stats }] = await rows<{ stats: { articles_draft: number; articles_published: number } }>(
@@ -196,7 +303,7 @@ describe('admins', () => {
   });
 
   it('create, edit and publish an article with unique slugs', async () => {
-    await actAs(db, 'authenticated', admin, async () => {
+    await actAs(db, 'web_admin', admin, async () => {
       const [topic] = await rows<{ id: string }>(db, "select id from public.topics where slug = 'biostatistics'");
       const data = {
         title: 'Understanding Hazard Ratio in Clinical Trials',
@@ -245,17 +352,17 @@ describe('admins', () => {
       expect(published.published_at).not.toBeNull();
     });
 
-    const visible = await actAs(db, 'anon', null, () =>
+    const visible = await actAs(db, 'web_anon', null, () =>
       rows<{ slug: string }>(db, "select slug from public.articles where slug = 'custom-slug'"),
     );
     expect(visible).toHaveLength(1);
   });
 
   it('soft-deleted articles disappear from the public site', async () => {
-    await actAs(db, 'authenticated', admin, () =>
+    await actAs(db, 'web_admin', admin, () =>
       db.query("update public.articles set deleted_at = now() where slug = 'custom-slug'"),
     );
-    const visible = await actAs(db, 'anon', null, () =>
+    const visible = await actAs(db, 'web_anon', null, () =>
       rows<{ slug: string }>(db, "select slug from public.articles where slug = 'custom-slug'"),
     );
     expect(visible).toHaveLength(0);
@@ -263,12 +370,12 @@ describe('admins', () => {
 
   it('cannot demote the last active admin', async () => {
     await expect(
-      actAs(db, 'authenticated', admin, () => db.query("update public.profiles set role = 'editor' where id = $1", [admin.id])),
+      actAs(db, 'web_admin', admin, () => db.query("update public.profiles set role = 'editor' where id = $1", [admin.id])),
     ).rejects.toThrow(/At least one active admin/);
   });
 
   it('activity log is append-only and bound to the actor', async () => {
-    await actAs(db, 'authenticated', admin, async () => {
+    await actAs(db, 'web_admin', admin, async () => {
       await db.query("insert into public.activity_logs (actor_id, action, entity_type) values ($1, 'login', 'auth')", [admin.id]);
       await expect(
         db.query("insert into public.activity_logs (actor_id, action, entity_type) values ($1, 'login', 'auth')", [editor.id]),
@@ -285,7 +392,7 @@ describe('article files', () => {
     const [draft] = await rows<{ id: string }>(db, 'select id from public.articles where slug = $1', [DRAFT_SLUG]);
 
     const insertFile = (articleId: string, visibility: string, status: string) =>
-      actAs(db, 'authenticated', admin, async () => {
+      actAs(db, 'web_admin', admin, async () => {
         const fileId = crypto.randomUUID();
         await db.query(
           `insert into public.article_files (id, article_id, original_filename, internal_name, storage_path, size_bytes, visibility, status, uploaded_by)
@@ -300,13 +407,13 @@ describe('article files', () => {
     const publicPending = await insertFile(article.id, 'public', 'pending');
     const publicOnDraft = await insertFile(draft.id, 'public', 'ready');
 
-    const visible = await actAs(db, 'anon', null, () => rows<{ id: string }>(db, 'select id from public.article_files'));
+    const visible = await actAs(db, 'web_anon', null, () => rows<{ id: string }>(db, 'select id from public.article_files'));
     expect(visible.map((row) => row.id)).toEqual([publicReady]);
     expect(visible.map((row) => row.id)).not.toContain(privateReady);
     expect(visible.map((row) => row.id)).not.toContain(publicPending);
     expect(visible.map((row) => row.id)).not.toContain(publicOnDraft);
 
-    const [{ detail }] = await actAs(db, 'anon', null, () =>
+    const [{ detail }] = await actAs(db, 'web_anon', null, () =>
       rows<{ detail: { files: Array<{ id: string }> } }>(db, 'select public.article_detail_json($1, true) as detail', [
         article.id,
       ]),
@@ -315,7 +422,7 @@ describe('article files', () => {
   });
 
   it('rejects path traversal and non-PDF metadata at the database level', async () => {
-    await actAs(db, 'authenticated', admin, async () => {
+    await actAs(db, 'web_admin', admin, async () => {
       const fileId = crypto.randomUUID();
       await expect(
         db.query(
@@ -336,7 +443,7 @@ describe('article files', () => {
 
   it('cannot be inserted on behalf of another user', async () => {
     await expect(
-      actAs(db, 'authenticated', admin, () => {
+      actAs(db, 'web_admin', admin, () => {
         const fileId = crypto.randomUUID();
         return db.query(
           `insert into public.article_files (original_filename, internal_name, storage_path, size_bytes, uploaded_by, kind, status)
@@ -350,7 +457,7 @@ describe('article files', () => {
 
 describe('editors (prepared role)', () => {
   it('can draft their own articles but cannot publish or delete', async () => {
-    await actAs(db, 'authenticated', editor, async () => {
+    await actAs(db, 'web_admin', editor, async () => {
       const [{ saved }] = await rows<{ saved: { id: string } }>(
         db,
         "select public.admin_save_article(null, '{\"title\":\"Editor draft\"}'::jsonb) as saved",

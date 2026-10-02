@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useState } from 'react';
 
+import { Wordmark } from '@/components/brand/brand';
 import { PUBLIC_NAV } from '@/config/site';
 import { cn } from '@/utils/cn';
 
@@ -27,7 +28,9 @@ export function MobileNav({ siteName }: { siteName: string }) {
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 animate-fade-in bg-navy-950/40 md:hidden" />
         <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-white shadow-overlay focus:outline-none md:hidden">
           <div className="flex h-16 items-center justify-between border-b border-rule px-4">
-            <DialogPrimitive.Title className="font-semibold text-ink">{siteName}</DialogPrimitive.Title>
+            <DialogPrimitive.Title asChild>
+              <Wordmark name={siteName} as="h2" className="text-xs" />
+            </DialogPrimitive.Title>
             <DialogPrimitive.Close
               className="inline-flex size-10 items-center justify-center rounded-md hover:bg-navy-50"
               aria-label="Close menu"

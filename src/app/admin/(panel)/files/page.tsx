@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'Files' };
 export default async function FilesPage({ searchParams }: PageProps<'/admin/files'>) {
   const session = await requireAdminPage('files:write');
   const tab = (await searchParams).tab === 'images' ? 'images' : 'documents';
-  const [documents, images] = await Promise.all([listDocuments(session.supabase), listImages(session.supabase)]);
+  const [documents, images] = await Promise.all([listDocuments(session.db), listImages(session.db)]);
 
   return (
     <AdminPage title="Files" description="All PDFs (private bucket) and images (public buckets) tracked by the site." wide>

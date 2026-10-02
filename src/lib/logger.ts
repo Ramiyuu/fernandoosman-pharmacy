@@ -7,7 +7,10 @@
 type Level = 'debug' | 'info' | 'warn' | 'error';
 type Context = Record<string, unknown>;
 
-const SENSITIVE_KEY = /pass(word)?|secret|token|authorization|cookie|session|api[-_]?key|service[-_]?role|jwt|signed[-_]?url/i;
+// Secrets are never logged, and neither is personal data (LGPD): e-mail and IP
+// addresses are dropped by key name as well.
+const SENSITIVE_KEY =
+  /pass(word)?|secret|token|authorization|cookie|session|api[-_]?key|access[-_]?key|jwt|signed[-_]?url|database[-_]?url|connection|e-?mail|^ip$|ip[-_]?address|totp|backup[-_]?code/i;
 
 function redactValue(key: string, value: unknown): unknown {
   if (SENSITIVE_KEY.test(key)) return '[redacted]';
@@ -47,7 +50,7 @@ export function createLogger(scope: string) {
   };
 }
 
-/** Converts unknown thrown values (including Supabase/PostgREST errors) to a loggable shape. */
+/** Converts unknown thrown values (including Postgres and Better Auth errors) to a loggable shape. */
 export function describeError(error: unknown): Context {
   if (error instanceof Error) return serializeError(error);
   if (error && typeof error === 'object') {

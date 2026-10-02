@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Tags' };
 
 export default async function TagsAdminPage() {
   const session = await requireAdminPage('taxonomy:write');
-  const tags = await getTagsWithUsage(session.supabase);
+  const tags = await getTagsWithUsage(session.db);
 
   return (
     <AdminPage title="Tags" description="Keywords shared by articles and projects. Tags are also created from the editors.">

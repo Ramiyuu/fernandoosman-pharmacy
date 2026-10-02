@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { Wordmark } from '@/components/brand/brand';
 import { Container } from '@/components/layout/container';
 import { JsonLd } from '@/components/seo/json-ld';
 import { buttonVariants } from '@/components/ui/button';
@@ -12,8 +13,6 @@ import { breadcrumbJsonLd, personJsonLd } from '@/lib/seo/structured-data';
 import { getSiteProfile } from '@/services/public-content.service';
 import { formatDate } from '@/utils/format';
 import { safeExternalUrl } from '@/utils/url';
-
-export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await getSiteProfile();
@@ -50,7 +49,7 @@ export default async function CvPage() {
       <header className="flex flex-col gap-6 pt-12 pb-10 sm:flex-row sm:items-end sm:justify-between sm:pt-16">
         <div>
           <p className="text-sm font-medium text-teal-700">Curriculum vitae</p>
-          <h1 className="display-condensed mt-2 text-5xl leading-none font-semibold text-ink">{profile.full_name}</h1>
+          <Wordmark as="h1" name={profile.full_name} className="mt-3 text-3xl leading-tight tracking-[0.1em] sm:text-4xl" />
           <p className="mt-3 text-lg text-navy-800">
             {[profile.headline, profile.course, profile.university].filter(Boolean).join(', ')}
           </p>

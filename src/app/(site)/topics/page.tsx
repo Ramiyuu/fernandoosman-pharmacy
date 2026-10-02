@@ -8,8 +8,6 @@ import { TopicPlot } from '@/features/topics/components/topic-plot';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { getPublicMetrics, getTopicsWithCounts } from '@/services/public-content.service';
 
-export const revalidate = 300;
-
 const DESCRIPTION = 'Browse articles by subject area: clinical research, biostatistics, pharmacology and more.';
 
 export const metadata: Metadata = buildMetadata({ title: 'Topics', description: DESCRIPTION, path: '/topics' });

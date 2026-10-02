@@ -1,12 +1,13 @@
 'use server';
 
 import { fail, ok, type ActionResult } from '@/lib/action-result';
-import { invalidInput } from '@/lib/validation';
 import { guardAction } from '@/lib/auth/action-guard';
 import { estimateReadingTime, richTextToPlainText, sanitizeRichText } from '@/lib/content/rich-text';
+import { sql } from '@/lib/db/sql';
 import { failFromDbError } from '@/lib/db-errors';
 import { revalidatePublicContent } from '@/lib/revalidate';
 import { isAllowedContentImageUrl } from '@/lib/storage/public-url';
+import { invalidInput } from '@/lib/validation';
 import {
   articleInputSchema,
   articleStatusChangeSchema,
@@ -16,7 +17,7 @@ import {
 import { uuidSchema } from '@/schemas/common';
 import { logActivity } from '@/services/activity-log.service';
 import { removeDocuments } from '@/services/storage.service';
-import type { ContentStatus, Json } from '@/types/database.types';
+import type { ContentStatus } from '@/types/database.types';
 
 export interface SavedArticle {
   id: string;
@@ -29,7 +30,7 @@ export interface SavedArticle {
 export async function saveArticleAction(input: ArticleInput, options: { autosave?: boolean } = {}): Promise<ActionResult<SavedArticle>> {
   const guard = await guardAction('articles:write');
   if (!guard.ok) return guard;
-  const { supabase, userId } = guard.session;
+  const { db, userId } = guard.session;
 
   const parsed = articleInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -44,10 +45,15 @@ export async function saveArticleAction(input: ArticleInput, options: { autosave
 
   let wasPublished = false;
   if (data.id) {
-    const { data: current, error } = await supabase.from('articles').select('status, deleted_at').eq('id', data.id).maybeSingle();
-    if (error) return failFromDbError('articles.current', error);
-    if (!current || current.deleted_at) return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
-    wasPublished = current.status === 'published';
+    try {
+      const current = await db.maybeOne<{ status: ContentStatus; deleted_at: string | null }>(
+        sql`select status, deleted_at from public.articles where id = ${data.id}`,
+      );
+      if (!current || current.deleted_at) return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
+      wasPublished = current.status === 'published';
+    } catch (error) {
+      return failFromDbError('articles.current', error);
+    }
   }
 
   // A live article must stay publishable.
@@ -76,26 +82,30 @@ export async function saveArticleAction(input: ArticleInput, options: { autosave
     cover_image_alt: data.cover_image_alt,
   };
 
-  const { data: saved, error } = await supabase.rpc('admin_save_article', {
-    p_id: data.id,
-    p_data: payload as unknown as Json,
-    p_topic_ids: data.topic_ids,
-    p_tag_names: [...new Set(data.tags)],
-    p_references: data.references as unknown as Json,
-  });
-  if (error || !saved) return failFromDbError('articles.save', error);
-
-  const result = saved as unknown as Omit<SavedArticle, 'reading_time'>;
+  let result: Omit<SavedArticle, 'reading_time'>;
+  try {
+    const row = await db.one<{ saved: Omit<SavedArticle, 'reading_time'> }>(sql`
+      select public.admin_save_article(
+        ${data.id ?? null}::uuid,
+        ${JSON.stringify(payload)}::jsonb,
+        ${data.topic_ids}::uuid[],
+        ${[...new Set(data.tags)]}::text[],
+        ${JSON.stringify(data.references)}::jsonb
+      ) as saved`);
+    result = row.saved;
+  } catch (error) {
+    return failFromDbError('articles.save', error);
+  }
 
   if (!data.id) {
-    await logActivity(supabase, userId, {
+    await logActivity(db, userId, {
       action: 'article_created',
       entityType: 'article',
       entityId: result.id,
       summary: data.title || 'Untitled draft',
     });
   } else if (!options.autosave) {
-    await logActivity(supabase, userId, {
+    await logActivity(db, userId, {
       action: 'article_updated',
       entityType: 'article',
       entityId: result.id,
@@ -110,18 +120,18 @@ export async function saveArticleAction(input: ArticleInput, options: { autosave
 export async function setArticleStatusAction(input: { id: string; status: ContentStatus }): Promise<ActionResult<{ status: ContentStatus }>> {
   const guard = await guardAction('articles:publish');
   if (!guard.ok) return guard;
-  const { supabase, userId } = guard.session;
+  const { db, userId } = guard.session;
 
   const parsed = articleStatusChangeSchema.safeParse(input);
   if (!parsed.success) return fail('Invalid request.');
   const { id, status } = parsed.data;
 
-  const { data: article, error } = await supabase
-    .from('articles')
-    .select('title, excerpt, content_text, status, deleted_at')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) return failFromDbError('articles.status.lookup', error);
+  let article: { title: string; excerpt: string; content_text: string; deleted_at: string | null } | null;
+  try {
+    article = await db.maybeOne(sql`select title, excerpt, content_text, deleted_at from public.articles where id = ${id}`);
+  } catch (error) {
+    return failFromDbError('articles.status.lookup', error);
+  }
   if (!article || article.deleted_at) return fail('This article no longer exists or is in the trash.', { code: 'NOT_FOUND' });
 
   if (status === 'published') {
@@ -129,12 +139,16 @@ export async function setArticleStatusAction(input: { id: string; status: Conten
     if (blockers.length > 0) return fail(`Before publishing: ${blockers.join(' ')}`);
   }
 
-  const { error: updateError } = await supabase.from('articles').update({ status }).eq('id', id);
-  if (updateError) return failFromDbError('articles.status.update', updateError);
+  try {
+    const updated = await db.execute(sql`update public.articles set status = ${status}::public.content_status where id = ${id}`);
+    if (updated === 0) return fail('You do not have permission to do this.', { code: 'FORBIDDEN' });
+  } catch (error) {
+    return failFromDbError('articles.status.update', error);
+  }
 
   const action =
     status === 'published' ? 'article_published' : status === 'archived' ? 'article_archived' : 'article_unpublished';
-  await logActivity(supabase, userId, { action, entityType: 'article', entityId: id, summary: article.title });
+  await logActivity(db, userId, { action, entityType: 'article', entityId: id, summary: article.title });
 
   revalidatePublicContent();
   return ok({ status }, status === 'published' ? 'Published.' : status === 'archived' ? 'Archived.' : 'Moved back to drafts.');
@@ -143,20 +157,21 @@ export async function setArticleStatusAction(input: { id: string; status: Conten
 export async function deleteArticleAction(id: string): Promise<ActionResult> {
   const guard = await guardAction('articles:delete');
   if (!guard.ok) return guard;
-  const { supabase, userId } = guard.session;
+  const { db, userId } = guard.session;
   if (!uuidSchema.safeParse(id).success) return fail('Invalid request.');
 
-  const { data, error } = await supabase
-    .from('articles')
-    .update({ deleted_at: new Date().toISOString(), featured: false })
-    .eq('id', id)
-    .is('deleted_at', null)
-    .select('title')
-    .maybeSingle();
-  if (error) return failFromDbError('articles.delete', error);
-  if (!data) return fail('This article no longer exists.', { code: 'NOT_FOUND' });
+  let deleted: { title: string } | null;
+  try {
+    deleted = await db.maybeOne(sql`
+      update public.articles set deleted_at = now(), featured = false
+      where id = ${id} and deleted_at is null
+      returning title`);
+  } catch (error) {
+    return failFromDbError('articles.delete', error);
+  }
+  if (!deleted) return fail('This article no longer exists.', { code: 'NOT_FOUND' });
 
-  await logActivity(supabase, userId, { action: 'article_deleted', entityType: 'article', entityId: id, summary: data.title });
+  await logActivity(db, userId, { action: 'article_deleted', entityType: 'article', entityId: id, summary: deleted.title });
   revalidatePublicContent();
   return ok(undefined, 'Moved to trash.');
 }
@@ -164,21 +179,22 @@ export async function deleteArticleAction(id: string): Promise<ActionResult> {
 export async function restoreArticleAction(id: string): Promise<ActionResult> {
   const guard = await guardAction('articles:delete');
   if (!guard.ok) return guard;
-  const { supabase, userId } = guard.session;
+  const { db, userId } = guard.session;
   if (!uuidSchema.safeParse(id).success) return fail('Invalid request.');
 
   // Restored articles come back as drafts so nothing goes live by accident.
-  const { data, error } = await supabase
-    .from('articles')
-    .update({ deleted_at: null, status: 'draft' })
-    .eq('id', id)
-    .not('deleted_at', 'is', null)
-    .select('title')
-    .maybeSingle();
-  if (error) return failFromDbError('articles.restore', error);
-  if (!data) return fail('This article is not in the trash.', { code: 'NOT_FOUND' });
+  let restored: { title: string } | null;
+  try {
+    restored = await db.maybeOne(sql`
+      update public.articles set deleted_at = null, status = 'draft'
+      where id = ${id} and deleted_at is not null
+      returning title`);
+  } catch (error) {
+    return failFromDbError('articles.restore', error);
+  }
+  if (!restored) return fail('This article is not in the trash.', { code: 'NOT_FOUND' });
 
-  await logActivity(supabase, userId, { action: 'article_restored', entityType: 'article', entityId: id, summary: data.title });
+  await logActivity(db, userId, { action: 'article_restored', entityType: 'article', entityId: id, summary: restored.title });
   revalidatePublicContent();
   return ok(undefined, 'Restored as a draft.');
 }
@@ -187,33 +203,42 @@ export async function restoreArticleAction(id: string): Promise<ActionResult> {
 export async function purgeArticleAction(id: string): Promise<ActionResult> {
   const guard = await guardAction('articles:delete');
   if (!guard.ok) return guard;
-  const { supabase, userId } = guard.session;
+  const { db, userId } = guard.session;
   if (!uuidSchema.safeParse(id).success) return fail('Invalid request.');
 
-  const { data: article, error } = await supabase.from('articles').select('title, deleted_at').eq('id', id).maybeSingle();
-  if (error) return failFromDbError('articles.purge.lookup', error);
+  let article: { title: string; deleted_at: string | null } | null;
+  let files: Array<{ id: string; storage_path: string }>;
+  try {
+    article = await db.maybeOne(sql`select title, deleted_at from public.articles where id = ${id}`);
+    files = article ? await db.many(sql`select id, storage_path from public.article_files where article_id = ${id}`) : [];
+  } catch (error) {
+    return failFromDbError('articles.purge.lookup', error);
+  }
   if (!article) return fail('This article no longer exists.', { code: 'NOT_FOUND' });
   if (!article.deleted_at) return fail('Move the article to the trash before deleting it permanently.');
 
-  const { data: files, error: filesError } = await supabase.from('article_files').select('id, storage_path').eq('article_id', id);
-  if (filesError) return failFromDbError('articles.purge.files', filesError);
-
-  if (files && files.length > 0) {
+  // Remove the objects first: a dangling row is visible and retryable, an
+  // orphaned object in storage is not.
+  if (files.length > 0) {
     const removed = await removeDocuments(files.map((file) => file.storage_path));
     if (!removed) return fail('The attached documents could not be removed. Nothing was deleted; try again.');
-    const { error: deleteFilesError } = await supabase.from('article_files').delete().eq('article_id', id);
-    if (deleteFilesError) return failFromDbError('articles.purge.file-rows', deleteFilesError);
   }
 
-  const { error: deleteError } = await supabase.from('articles').delete().eq('id', id);
-  if (deleteError) return failFromDbError('articles.purge', deleteError);
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`delete from public.article_files where article_id = ${id}`);
+      await tx.execute(sql`delete from public.articles where id = ${id}`);
+    });
+  } catch (error) {
+    return failFromDbError('articles.purge', error);
+  }
 
-  await logActivity(supabase, userId, {
+  await logActivity(db, userId, {
     action: 'article_purged',
     entityType: 'article',
     entityId: id,
     summary: article.title,
-    metadata: { files_removed: files?.length ?? 0 },
+    metadata: { files_removed: files.length },
   });
   return ok(undefined, 'Deleted permanently.');
 }

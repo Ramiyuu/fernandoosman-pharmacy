@@ -1,4 +1,4 @@
-// Shapes returned by the JSON RPC functions in supabase/migrations/*_rpc.sql.
+// Shapes returned by the JSON functions in db/migrations/0007_public_rpc.sql.
 import type { RichTextDoc } from '@/lib/content/rich-text';
 
 import type { ContentStatus, FileVisibility, ProjectProgress } from './database.types';

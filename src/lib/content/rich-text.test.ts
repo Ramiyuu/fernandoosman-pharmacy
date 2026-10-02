@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { annotateHeadings, estimateReadingTime, richTextToPlainText, sanitizeRichText } from './rich-text';
 
-const ALLOWED_IMAGE = 'https://project.supabase.co/storage/v1/object/public/article-images/articles/0b8a6c2e-1d3f-4a5b-8c7d-9e0f1a2b3c4d.webp';
+const ALLOWED_IMAGE = '/media/article-images/articles/0b8a6c2e-1d3f-4a5b-8c7d-9e0f1a2b3c4d.webp';
 const options = { isAllowedImageSrc: (src: string) => src === ALLOWED_IMAGE };
 
 describe('sanitizeRichText', () => {

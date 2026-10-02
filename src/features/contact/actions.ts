@@ -1,11 +1,13 @@
 'use server';
 
+import { contactRetentionDays } from '@/config/privacy';
 import { fail, ok, type ActionResult } from '@/lib/action-result';
-import { invalidInput } from '@/lib/validation';
+import { serverDb } from '@/lib/db/client';
+import { sql } from '@/lib/db/sql';
 import { createLogger, describeError } from '@/lib/logger';
 import { rateLimit } from '@/lib/security/rate-limit';
 import { getClientIp } from '@/lib/security/request';
-import { createServiceSupabase } from '@/lib/supabase/admin';
+import { invalidInput } from '@/lib/validation';
 import { contactSchema, type ContactInput } from '@/schemas/contact.schema';
 
 const log = createLogger('contact');
@@ -27,11 +29,18 @@ export async function submitContactAction(input: ContactInput): Promise<ActionRe
     });
   }
 
-  // The public role cannot insert into `contacts` (no RLS policy); the server
-  // inserts with the service role after validation and rate limiting.
+  // Stored as web_server, which may insert messages but cannot read them.
+  // No IP address or other technical data is kept with the message.
   const { name, email, subject, message } = parsed.data;
-  const { error } = await createServiceSupabase().from('contacts').insert({ name, email, subject, message });
-  if (error) {
+  try {
+    await serverDb().transaction(async (tx) => {
+      await tx.execute(sql`
+        insert into public.contacts (name, email, subject, message, consented_at)
+        values (${name}, ${email}, ${subject}, ${message}, now())`);
+      // LGPD retention: drop messages older than CONTACT_RETENTION_DAYS.
+      await tx.execute(sql`select private.purge_expired_contacts(${contactRetentionDays()})`);
+    });
+  } catch (error) {
     log.error('Failed to store contact message', { error: describeError(error) });
     return fail('Your message could not be sent right now. Try again later.');
   }

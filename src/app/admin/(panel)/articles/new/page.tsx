@@ -9,6 +9,6 @@ export const metadata: Metadata = { title: 'New article' };
 
 export default async function NewArticlePage() {
   const session = await requireAdminPage('articles:write');
-  const options = await getEditorOptions(session.supabase);
+  const options = await getEditorOptions(session.db);
   return <ArticleEditor article={null} options={options} maxPdfBytes={PDF_UPLOAD.maxBytes} />;
 }

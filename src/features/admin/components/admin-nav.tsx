@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   Settings,
   Shapes,
+  ShieldCheck,
   Tags,
   User,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ const ICONS: Record<(typeof ADMIN_NAV)[number]['icon'], LucideIcon> = {
   files: Files,
   inbox: Inbox,
   user: User,
+  'shield-check': ShieldCheck,
   settings: Settings,
 };
 

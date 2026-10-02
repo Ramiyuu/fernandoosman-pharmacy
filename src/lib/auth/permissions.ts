@@ -27,7 +27,7 @@ const ALL_PERMISSIONS: readonly Permission[] = [
 
 /**
  * Application-level permissions per role. The database enforces the same
- * boundaries independently through RLS (see supabase/migrations/*_rls_policies.sql).
+ * boundaries independently through RLS (see db/migrations/0006_privileges_and_rls.sql).
  *
  * `editor` is prepared but intentionally has no panel access yet. To enable it,
  * grant e.g. 'admin:access' and 'articles:write' here; RLS already restricts

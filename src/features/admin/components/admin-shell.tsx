@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useState, type ReactNode } from 'react';
 
+import { BrandIcon } from '@/components/brand/brand';
 import { signOutAction } from '@/features/auth/actions';
 
 import { AdminNav } from './admin-nav';
@@ -20,10 +21,8 @@ function SidebarContent({ userName, userEmail, newMessages, onNavigate }: Omit<A
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center gap-2.5 border-b border-navy-800 px-5">
-        <span className="inline-flex size-7 items-center justify-center rounded-md bg-teal-500 text-xs font-semibold text-white" aria-hidden="true">
-          FO
-        </span>
-        <span className="font-semibold text-white">Admin</span>
+        <BrandIcon size={30} />
+        <span className="text-sm font-semibold tracking-[0.12em] text-white uppercase">Admin</span>
       </div>
       <nav aria-label="Admin" className="flex-1 overflow-y-auto p-3">
         <AdminNav onNavigate={onNavigate} newMessages={newMessages} />
@@ -56,7 +55,10 @@ export function AdminShell({ children, ...user }: AdminShellProps) {
       </aside>
 
       <div className="flex h-14 items-center justify-between border-b border-rule bg-navy-950 px-4 lg:hidden">
-        <span className="font-semibold text-white">Admin</span>
+        <span className="flex items-center gap-2.5">
+          <BrandIcon size={28} />
+          <span className="text-sm font-semibold tracking-[0.12em] text-white uppercase">Admin</span>
+        </span>
         <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
           <DialogPrimitive.Trigger className="inline-flex size-10 items-center justify-center rounded-md text-white" aria-label="Open admin menu">
             <Menu className="size-5" aria-hidden="true" />

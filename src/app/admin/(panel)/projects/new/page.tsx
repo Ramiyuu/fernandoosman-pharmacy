@@ -8,6 +8,6 @@ export const metadata: Metadata = { title: 'New project' };
 
 export default async function NewProjectPage() {
   const session = await requireAdminPage('projects:write');
-  const tags = await getTagSuggestions(session.supabase);
+  const tags = await getTagSuggestions(session.db);
   return <ProjectEditor project={null} tagSuggestions={tags} />;
 }

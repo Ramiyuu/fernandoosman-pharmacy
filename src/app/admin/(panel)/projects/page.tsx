@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: 'Projects' };
 
 export default async function AdminProjectsPage() {
   const session = await requireAdminPage('projects:write');
-  const projects = await listAdminProjects(session.supabase);
+  const projects = await listAdminProjects(session.db);
 
   return (
     <AdminPage

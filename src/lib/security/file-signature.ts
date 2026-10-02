@@ -94,3 +94,33 @@ export const IMAGE_EXTENSION_BY_MIME: Record<ImageMimeType, string> = {
   'image/webp': 'webp',
   'image/avif': 'avif',
 };
+
+// PDF features that run code or carry other files. A portfolio PDF (paper,
+// poster, CV) has no reason to contain them, so they are refused to protect
+// visitors' PDF readers. The patterns match PDF dictionary syntax (an action
+// type, a key followed by a value), not plain words, so a link such as
+// https://example.com/js/ is not a false positive. Hex-escaped names
+// (/J#61vaScript) are decoded first. Content inside compressed object streams
+// is not visible here: this is defence in depth on top of admin-only uploads.
+const ACTIVE_PDF_PATTERNS: ReadonlyArray<readonly [string, RegExp]> = [
+  ['javascript', /\/S\s*\/JavaScript\b/],
+  ['javascript', /\/JS\s*(?:\(|<|\d+\s+\d+\s+R)/],
+  ['launch', /\/S\s*\/Launch\b/],
+  ['form submission', /\/S\s*\/(?:SubmitForm|ImportData)\b/],
+  ['embedded file', /\/EmbeddedFiles?\s*(?:<<|\[|\d+\s+\d+\s+R)/],
+  ['embedded file', /\/Type\s*\/EmbeddedFile\b/],
+  ['rich media', /\/RichMedia(?:Content|Execute|Settings)?\b/],
+];
+
+const decodeNameEscapes = (name: string) =>
+  name.replace(/#([0-9a-fA-F]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+
+export function findPdfActiveContent(bytes: Uint8Array): string | null {
+  const text = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    .toString('latin1')
+    .replace(/\/[A-Za-z0-9#]+/g, decodeNameEscapes);
+  for (const [label, pattern] of ACTIVE_PDF_PATTERNS) {
+    if (pattern.test(text)) return label;
+  }
+  return null;
+}

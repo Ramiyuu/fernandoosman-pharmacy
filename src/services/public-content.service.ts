@@ -2,8 +2,10 @@ import 'server-only';
 
 import { cache } from 'react';
 
+import { cachedPublic } from '@/lib/cache/public-cache';
 import { asRichTextDoc } from '@/lib/content/rich-text';
-import { createPublicSupabase } from '@/lib/supabase/public';
+import { publicDb } from '@/lib/db/client';
+import { compile, sql, type SqlFragment } from '@/lib/db/sql';
 import type {
   ArticleCard,
   ArticleDetail,
@@ -23,11 +25,10 @@ import type {
 import { failQuery } from './errors';
 
 /**
- * Read-only queries for the public site. They use the cookie-less anon client,
- * so results are identical for every visitor and safe to cache (ISR).
+ * Read-only queries for the public site. They always run as `web_anon`, so
+ * results are identical for every visitor, safe to cache (in memory, see
+ * src/lib/cache/public-cache.ts) and limited by RLS to published content.
  */
-
-const READ = { get: true } as const;
 
 export const ARTICLES_PAGE_SIZE = 9;
 export const PROJECTS_PAGE_SIZE = 9;
@@ -35,80 +36,77 @@ export const SEARCH_PAGE_SIZE = 10;
 
 const offsetFor = (page: number, pageSize: number) => (Math.max(1, Math.floor(page)) - 1) * pageSize;
 
+/** Cache key for a query: its SQL text plus its parameters. */
+function keyOf(query: SqlFragment): string {
+  const { text, values } = compile(query);
+  return `${text}|${JSON.stringify(values)}`;
+}
+
+/** Runs a cached query as web_anon; failures become a generic DataAccessError. */
+async function read<T>(operation: string, query: SqlFragment, run: (query: SqlFragment) => Promise<T>): Promise<T> {
+  try {
+    return await cachedPublic(keyOf(query), () => run(query));
+  } catch (error) {
+    failQuery(operation, error);
+  }
+}
+
+/** Runs a function that returns a single jsonb value. */
+function value<T>(operation: string, query: SqlFragment): Promise<T> {
+  return read(operation, query, async (q) => (await publicDb().one<{ value: T }>(q)).value);
+}
+
 export const getPublishedArticles = cache(
-  async (filters: ArticleFilters, page = 1, pageSize = ARTICLES_PAGE_SIZE): Promise<Paginated<ArticleCard>> => {
-    const { data, error } = await createPublicSupabase().rpc(
+  async (filters: ArticleFilters, page = 1, pageSize = ARTICLES_PAGE_SIZE): Promise<Paginated<ArticleCard>> =>
+    value(
       'get_published_articles',
-      {
-        p_topic: filters.topic,
-        p_category: filters.category,
-        p_tag: filters.tag,
-        p_language: filters.language,
-        p_year: filters.year,
-        p_limit: pageSize,
-        p_offset: offsetFor(page, pageSize),
-      },
-      READ,
-    );
-    if (error) failQuery('get_published_articles', error);
-    return data as unknown as Paginated<ArticleCard>;
-  },
+      sql`select public.get_published_articles(
+        p_topic => ${filters.topic ?? null}, p_category => ${filters.category ?? null}, p_tag => ${filters.tag ?? null},
+        p_language => ${filters.language ?? null}, p_year => ${filters.year ?? null}::integer,
+        p_limit => ${pageSize}::integer, p_offset => ${offsetFor(page, pageSize)}::integer
+      ) as value`,
+    ),
 );
 
-export const getFeaturedArticle = cache(async (): Promise<ArticleCard | null> => {
-  const { data, error } = await createPublicSupabase().rpc('get_featured_article', {}, READ);
-  if (error) failQuery('get_featured_article', error);
-  return (data as unknown as ArticleCard | null) ?? null;
-});
+export const getFeaturedArticle = cache(
+  async (): Promise<ArticleCard | null> => value('get_featured_article', sql`select public.get_featured_article() as value`),
+);
 
 export const getArticleBySlug = cache(async (slug: string): Promise<ArticleDetail | null> => {
-  const { data, error } = await createPublicSupabase().rpc('get_article_by_slug', { p_slug: slug }, READ);
-  if (error) failQuery('get_article_by_slug', error);
-  if (!data) return null;
-  const article = data as unknown as ArticleDetail;
-  return { ...article, content: asRichTextDoc(article.content) };
+  const article = await value<ArticleDetail | null>('get_article_by_slug', sql`select public.get_article_by_slug(${slug}) as value`);
+  return article ? { ...article, content: asRichTextDoc(article.content) } : null;
 });
 
-export const getArticleFilterOptions = cache(async (): Promise<ArticleFilterOptions> => {
-  const { data, error } = await createPublicSupabase().rpc('get_article_filter_options', {}, READ);
-  if (error) failQuery('get_article_filter_options', error);
-  return data as unknown as ArticleFilterOptions;
-});
+export const getArticleFilterOptions = cache(
+  async (): Promise<ArticleFilterOptions> =>
+    value('get_article_filter_options', sql`select public.get_article_filter_options() as value`),
+);
 
-export const getTopicsWithCounts = cache(async (): Promise<TopicWithCount[]> => {
-  const { data, error } = await createPublicSupabase().rpc('get_topics_with_counts', {}, READ);
-  if (error) failQuery('get_topics_with_counts', error);
-  return (data ?? []).map((topic) => ({ ...topic, article_count: Number(topic.article_count) }));
-});
+export const getTopicsWithCounts = cache(
+  async (): Promise<TopicWithCount[]> =>
+    read('get_topics_with_counts', sql`select * from public.get_topics_with_counts()`, (q) => publicDb().many<TopicWithCount>(q)),
+);
 
 export const getTopicBySlug = cache(async (slug: string): Promise<TopicWithCount | null> => {
   const topics = await getTopicsWithCounts();
   return topics.find((topic) => topic.slug === slug) ?? null;
 });
 
-export const getPublicMetrics = cache(async (): Promise<PublicMetrics> => {
-  const { data, error } = await createPublicSupabase().rpc('get_public_metrics', {}, READ);
-  if (error) failQuery('get_public_metrics', error);
-  return data as unknown as PublicMetrics;
-});
+export const getPublicMetrics = cache(
+  async (): Promise<PublicMetrics> => value('get_public_metrics', sql`select public.get_public_metrics() as value`),
+);
 
 export const getPublishedProjects = cache(
-  async (page = 1, pageSize = PROJECTS_PAGE_SIZE): Promise<Paginated<ProjectCard>> => {
-    const { data, error } = await createPublicSupabase().rpc(
+  async (page = 1, pageSize = PROJECTS_PAGE_SIZE): Promise<Paginated<ProjectCard>> =>
+    value(
       'get_published_projects',
-      { p_limit: pageSize, p_offset: offsetFor(page, pageSize) },
-      READ,
-    );
-    if (error) failQuery('get_published_projects', error);
-    return data as unknown as Paginated<ProjectCard>;
-  },
+      sql`select public.get_published_projects(${pageSize}::integer, ${offsetFor(page, pageSize)}::integer) as value`,
+    ),
 );
 
 export const getProjectBySlug = cache(async (slug: string): Promise<ProjectDetail | null> => {
-  const { data, error } = await createPublicSupabase().rpc('get_project_by_slug', { p_slug: slug }, READ);
-  if (error) failQuery('get_project_by_slug', error);
-  if (!data) return null;
-  const project = data as unknown as ProjectDetail;
+  const project = await value<ProjectDetail | null>('get_project_by_slug', sql`select public.get_project_by_slug(${slug}) as value`);
+  if (!project) return null;
   return {
     ...project,
     content: asRichTextDoc(project.content),
@@ -117,21 +115,20 @@ export const getProjectBySlug = cache(async (slug: string): Promise<ProjectDetai
   };
 });
 
-export const searchContent = cache(async (query: string, page = 1): Promise<SearchResults> => {
-  const { data, error } = await createPublicSupabase().rpc(
-    'search_content',
-    { p_query: query.slice(0, 200), p_limit: SEARCH_PAGE_SIZE, p_offset: offsetFor(page, SEARCH_PAGE_SIZE) },
-    READ,
-  );
-  if (error) failQuery('search_content', error);
-  return data as unknown as SearchResults;
-});
+export const searchContent = cache(
+  async (query: string, page = 1): Promise<SearchResults> =>
+    value(
+      'search_content',
+      sql`select public.search_content(${query.slice(0, 200)}, ${SEARCH_PAGE_SIZE}::integer, ${offsetFor(page, SEARCH_PAGE_SIZE)}::integer) as value`,
+    ),
+);
 
-const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+const asArray = <T>(input: unknown): T[] => (Array.isArray(input) ? (input as T[]) : []);
 
 export const getSiteProfile = cache(async (): Promise<SiteProfile | null> => {
-  const { data, error } = await createPublicSupabase().from('site_profile').select('*').eq('id', 1).maybeSingle();
-  if (error) failQuery('site_profile', error);
+  const data = await read('site_profile', sql`select * from public.site_profile where id = 1`, (q) =>
+    publicDb().maybeOne<SiteProfile>(q),
+  );
   if (!data) return null;
   return {
     ...data,
@@ -154,35 +151,29 @@ const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
-  const { data, error } = await createPublicSupabase().from('settings').select('key, value').in('key', ['site', 'contact']);
-  if (error) failQuery('settings', error);
-  const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
+  const data = await read('settings', sql`select key, value from public.settings where key in ('site', 'contact')`, (q) =>
+    publicDb().many<{ key: string; value: unknown }>(q),
+  );
+  const byKey = new Map(data.map((row) => [row.key, row.value]));
   return {
     site: { ...DEFAULT_SETTINGS.site, ...(byKey.get('site') as Partial<SiteSettings['site']> | undefined) },
     contact: { ...DEFAULT_SETTINGS.contact, ...(byKey.get('contact') as Partial<SiteSettings['contact']> | undefined) },
   };
 });
 
-export const getSitemapEntries = cache(async (): Promise<SitemapEntries> => {
-  const { data, error } = await createPublicSupabase().rpc('get_sitemap_entries', {}, READ);
-  if (error) failQuery('get_sitemap_entries', error);
-  return data as unknown as SitemapEntries;
-});
+export const getSitemapEntries = cache(
+  async (): Promise<SitemapEntries> => value('get_sitemap_entries', sql`select public.get_sitemap_entries() as value`),
+);
 
 /** Storage location of the current public CV (RLS only exposes the active CV file). */
-export async function getPublicCvFile(): Promise<{ storage_path: string; original_filename: string } | null> {
-  const supabase = createPublicSupabase();
-  const { data: profile, error } = await supabase.from('site_profile').select('cv_file_id').eq('id', 1).maybeSingle();
-  if (error) failQuery('site_profile.cv_file_id', error);
-  if (!profile?.cv_file_id) return null;
-
-  const { data: file, error: fileError } = await supabase
-    .from('article_files')
-    .select('storage_path, original_filename')
-    .eq('id', profile.cv_file_id)
-    .eq('kind', 'cv')
-    .eq('status', 'ready')
-    .maybeSingle();
-  if (fileError) failQuery('article_files.cv', fileError);
-  return file ?? null;
+export function getPublicCvFile(): Promise<{ storage_path: string; original_filename: string } | null> {
+  return read(
+    'article_files.cv',
+    sql`
+      select f.storage_path, f.original_filename
+      from public.site_profile sp
+      join public.article_files f on f.id = sp.cv_file_id
+      where sp.id = 1 and f.kind = 'cv' and f.status = 'ready'`,
+    (q) => publicDb().maybeOne<{ storage_path: string; original_filename: string }>(q),
+  );
 }

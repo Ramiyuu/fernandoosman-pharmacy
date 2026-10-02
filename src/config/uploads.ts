@@ -1,9 +1,7 @@
 /**
  * Upload policy — the single place to change limits and accepted types.
- *
- * The PDF limit must match the `documents` bucket `file_size_limit`
- * (supabase/migrations/*_storage.sql); the bucket enforces it again on the
- * storage side.
+ * Every upload goes through the site's server, which enforces these limits and
+ * checks the file content before anything is written to the R2 bucket.
  */
 
 const MB = 1024 * 1024;
@@ -24,9 +22,7 @@ export const PDF_UPLOAD = {
 } as const;
 
 export const IMAGE_UPLOAD = {
-  // Images are proxied through a Route Handler; keep below the 4.5 MB
-  // request-body limit of serverless platforms such as Vercel.
-  maxBytes: readMegabytes(process.env.IMAGE_MAX_SIZE_MB, 4, 4.4) * MB,
+  maxBytes: readMegabytes(process.env.IMAGE_MAX_SIZE_MB, 4, 10) * MB,
   maxDimension: 8000,
   mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'] as const,
   extensions: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'] as const,

@@ -1,13 +1,14 @@
 -- =============================================================================
--- 0200 · Tables and indexes
+-- 0004 · Tables and indexes
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
 -- profiles: one row per auth user. role NULL means "no administrative access".
--- Rows are created by a trigger on auth.users; roles are granted manually.
+-- Rows are created by a trigger on auth."user"; roles are granted manually
+-- (`npm run admin` creates the first admin with role = 'admin').
 -- -----------------------------------------------------------------------------
 create table public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id uuid primary key references auth."user" (id) on delete cascade,
   email text,
   display_name text not null default '' check (char_length(display_name) <= 120),
   role public.app_role,
@@ -133,9 +134,9 @@ create table public.article_references (
 create index article_references_article_idx on public.article_references (article_id, position);
 
 -- -----------------------------------------------------------------------------
--- article_files: PDF documents stored in the private `documents` bucket.
--- Only the storage path is stored. Signed URLs are generated on demand and are
--- never persisted.
+-- article_files: PDF documents stored under `documents/` in the private R2
+-- bucket. Only the storage path is stored. Signed URLs are generated on demand
+-- and are never persisted.
 -- -----------------------------------------------------------------------------
 create table public.article_files (
   id uuid primary key default gen_random_uuid(),
@@ -159,8 +160,9 @@ create index article_files_article_idx on public.article_files (article_id);
 create index article_files_kind_status_idx on public.article_files (kind, status);
 
 -- -----------------------------------------------------------------------------
--- media_files: images stored in the public image buckets (tracked for storage
--- usage and cleanup).
+-- media_files: images stored under `<bucket>/` in the private R2 bucket and
+-- served by the site at /media/<bucket>/<path> (tracked for storage usage and
+-- cleanup).
 -- -----------------------------------------------------------------------------
 create table public.media_files (
   id uuid primary key default gen_random_uuid(),
@@ -288,6 +290,8 @@ create index activity_logs_created_idx on public.activity_logs (created_at desc)
 
 -- -----------------------------------------------------------------------------
 -- contacts: messages from the public contact form (inserted server-side only).
+-- Personal data (LGPD): kept only to reply, deleted automatically after the
+-- retention period (private.purge_expired_contacts, CONTACT_RETENTION_DAYS).
 -- -----------------------------------------------------------------------------
 create table public.contacts (
   id uuid primary key default gen_random_uuid(),
@@ -296,6 +300,8 @@ create table public.contacts (
   subject text not null default '' check (char_length(subject) <= 200),
   message text not null check (char_length(message) between 1 and 5000),
   status text not null default 'new' check (status in ('new', 'read', 'archived')),
+  -- When the sender accepted the privacy notice (required by the form).
+  consented_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 create index contacts_created_idx on public.contacts (created_at desc);

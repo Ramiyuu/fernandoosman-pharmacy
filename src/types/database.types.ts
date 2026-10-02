@@ -1,7 +1,6 @@
-// Database types for supabase-js, mirroring supabase/migrations.
-// Regenerate against a real project with:
-//   npx supabase gen types typescript --project-id <ref> --schema public > src/types/database.types.ts
-// (JSON-returning RPCs are typed precisely in src/types/content.ts.)
+// Row and enum types mirroring db/migrations (snake_case, as returned by
+// src/lib/db/client.ts: timestamptz → ISO string, date → 'YYYY-MM-DD').
+// JSON-returning functions are typed precisely in src/types/content.ts.
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -35,7 +34,11 @@ export type ActivityAction =
   | 'profile_updated'
   | 'settings_updated'
   | 'cv_updated'
-  | 'contact_deleted';
+  | 'contact_deleted'
+  | 'two_factor_enabled'
+  | 'backup_codes_regenerated'
+  | 'password_changed'
+  | 'sessions_revoked';
 
 export type ActivityEntityType =
   | 'article'
@@ -50,7 +53,7 @@ export type ActivityEntityType =
   | 'auth'
   | 'contact';
 
-type ProfileRow = {
+export type ProfileRow = {
   id: string;
   email: string | null;
   display_name: string;
@@ -60,7 +63,7 @@ type ProfileRow = {
   updated_at: Timestamp;
 };
 
-type TopicRow = {
+export type TopicRow = {
   id: string;
   name: string;
   slug: string;
@@ -71,7 +74,7 @@ type TopicRow = {
   updated_at: Timestamp;
 };
 
-type CategoryRow = {
+export type CategoryRow = {
   id: string;
   name: string;
   slug: string;
@@ -81,14 +84,14 @@ type CategoryRow = {
   updated_at: Timestamp;
 };
 
-type TagRow = {
+export type TagRow = {
   id: string;
   name: string;
   slug: string;
   created_at: Timestamp;
 };
 
-type ArticleRow = {
+export type ArticleRow = {
   id: string;
   title: string;
   slug: string;
@@ -116,7 +119,7 @@ type ArticleRow = {
   search_vector: unknown;
 };
 
-type ArticleReferenceRow = {
+export type ArticleReferenceRow = {
   id: string;
   article_id: string;
   position: number;
@@ -130,7 +133,7 @@ type ArticleReferenceRow = {
   created_at: Timestamp;
 };
 
-type ArticleFileRow = {
+export type ArticleFileRow = {
   id: string;
   article_id: string | null;
   kind: FileKind;
@@ -148,7 +151,7 @@ type ArticleFileRow = {
   updated_at: Timestamp;
 };
 
-type MediaFileRow = {
+export type MediaFileRow = {
   id: string;
   bucket: string;
   storage_path: string;
@@ -161,7 +164,7 @@ type MediaFileRow = {
   created_at: Timestamp;
 };
 
-type ProjectRow = {
+export type ProjectRow = {
   id: string;
   title: string;
   slug: string;
@@ -188,7 +191,7 @@ type ProjectRow = {
   search_vector: unknown;
 };
 
-type SiteProfileRow = {
+export type SiteProfileRow = {
   id: number;
   full_name: string;
   headline: string;
@@ -217,7 +220,7 @@ type SiteProfileRow = {
   updated_by: string | null;
 };
 
-type SettingRow = {
+export type SettingRow = {
   key: string;
   value: Json;
   is_public: boolean;
@@ -225,7 +228,7 @@ type SettingRow = {
   updated_by: string | null;
 };
 
-type ActivityLogRow = {
+export type ActivityLogRow = {
   id: number;
   actor_id: string | null;
   action: ActivityAction;
@@ -236,152 +239,13 @@ type ActivityLogRow = {
   created_at: Timestamp;
 };
 
-type ContactRow = {
+export type ContactRow = {
   id: string;
   name: string;
   email: string;
   subject: string;
   message: string;
   status: 'new' | 'read' | 'archived';
+  consented_at: Timestamp;
   created_at: Timestamp;
 };
-
-/** Builds the Insert/Update shapes: generated or defaulted columns become optional. */
-type Writable<Row, Required extends keyof Row, Omitted extends keyof Row = never> = Pick<
-  Row,
-  Exclude<Required, Omitted>
-> &
-  Partial<Omit<Row, Required | Omitted>>;
-
-type TableDef<Row, Required extends keyof Row, Omitted extends keyof Row = never> = {
-  Row: Row;
-  Insert: Writable<Row, Required, Omitted>;
-  Update: Partial<Omit<Row, Omitted>>;
-  Relationships: [];
-};
-
-export type Database = {
-  __InternalSupabase: {
-    PostgrestVersion: '12';
-  };
-  public: {
-    Tables: {
-      profiles: TableDef<ProfileRow, 'id'>;
-      topics: TableDef<TopicRow, 'name' | 'slug'>;
-      categories: TableDef<CategoryRow, 'name' | 'slug'>;
-      tags: TableDef<TagRow, 'name' | 'slug'>;
-      articles: TableDef<ArticleRow, 'slug', 'search_vector'>;
-      article_topics: TableDef<{ article_id: string; topic_id: string }, 'article_id' | 'topic_id'>;
-      article_tags: TableDef<{ article_id: string; tag_id: string }, 'article_id' | 'tag_id'>;
-      article_references: TableDef<ArticleReferenceRow, 'article_id' | 'title'>;
-      article_files: TableDef<
-        ArticleFileRow,
-        'original_filename' | 'internal_name' | 'storage_path' | 'size_bytes'
-      >;
-      media_files: TableDef<
-        MediaFileRow,
-        'bucket' | 'storage_path' | 'original_filename' | 'mime_type' | 'size_bytes'
-      >;
-      projects: TableDef<ProjectRow, 'title' | 'slug', 'search_vector'>;
-      project_tags: TableDef<{ project_id: string; tag_id: string }, 'project_id' | 'tag_id'>;
-      site_profile: TableDef<SiteProfileRow, never>;
-      settings: TableDef<SettingRow, 'key' | 'value'>;
-      activity_logs: TableDef<ActivityLogRow, 'action', 'id'>;
-      contacts: TableDef<ContactRow, 'name' | 'email' | 'message'>;
-    };
-    Views: {
-      public_authors: {
-        Row: { id: string; display_name: string };
-        Relationships: [];
-      };
-    };
-    Functions: {
-      is_admin: { Args: Record<string, never>; Returns: boolean };
-      is_staff: { Args: Record<string, never>; Returns: boolean };
-      current_user_role: { Args: Record<string, never>; Returns: AppRole | null };
-      slugify: { Args: { p_value: string }; Returns: string };
-      article_card_json: { Args: { p_article_id: string }; Returns: Json };
-      article_detail_json: {
-        Args: { p_article_id: string; p_include_private_files?: boolean };
-        Returns: Json;
-      };
-      get_article_by_slug: { Args: { p_slug: string }; Returns: Json };
-      get_published_articles: {
-        Args: {
-          p_topic?: string;
-          p_category?: string;
-          p_tag?: string;
-          p_language?: string;
-          p_year?: number;
-          p_limit?: number;
-          p_offset?: number;
-        };
-        Returns: Json;
-      };
-      get_featured_article: { Args: Record<string, never>; Returns: Json };
-      get_article_filter_options: { Args: Record<string, never>; Returns: Json };
-      get_topics_with_counts: {
-        Args: Record<string, never>;
-        Returns: {
-          id: string;
-          name: string;
-          slug: string;
-          description: string;
-          icon: string;
-          sort_order: number;
-          article_count: number;
-        }[];
-      };
-      get_public_metrics: { Args: Record<string, never>; Returns: Json };
-      project_card_json: { Args: { p_project_id: string }; Returns: Json };
-      get_published_projects: { Args: { p_limit?: number; p_offset?: number }; Returns: Json };
-      get_project_by_slug: { Args: { p_slug: string }; Returns: Json };
-      search_content: { Args: { p_query: string; p_limit?: number; p_offset?: number }; Returns: Json };
-      get_sitemap_entries: { Args: Record<string, never>; Returns: Json };
-      admin_save_article: {
-        Args: {
-          p_id: string | null;
-          p_data: Json;
-          p_topic_ids?: string[];
-          p_tag_names?: string[];
-          p_references?: Json;
-        };
-        Returns: Json;
-      };
-      admin_save_project: {
-        Args: { p_id: string | null; p_data: Json; p_tag_names?: string[] };
-        Returns: Json;
-      };
-      admin_dashboard_stats: { Args: Record<string, never>; Returns: Json };
-      admin_list_files: {
-        Args: { p_kind?: string; p_limit?: number; p_offset?: number };
-        Returns: Json;
-      };
-      admin_tag_usage: {
-        Args: Record<string, never>;
-        Returns: {
-          id: string;
-          name: string;
-          slug: string;
-          created_at: string;
-          article_count: number;
-          project_count: number;
-        }[];
-      };
-    };
-    Enums: {
-      app_role: AppRole;
-      content_status: ContentStatus;
-      project_progress: ProjectProgress;
-      file_visibility: FileVisibility;
-      file_status: FileStatus;
-      file_kind: FileKind;
-      activity_action: ActivityAction;
-    };
-    CompositeTypes: Record<string, never>;
-  };
-};
-
-export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
-export type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
-export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];

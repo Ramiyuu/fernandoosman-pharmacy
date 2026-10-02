@@ -35,16 +35,16 @@ const PAD = { left: 28, right: 18, top: 22, bottom: 26 };
 function Grid() {
   const lines = [];
   for (let x = PAD.left; x <= W - PAD.right; x += 34.8) {
-    lines.push(<line key={`v${x}`} x1={x} y1={PAD.top} x2={x} y2={H - PAD.bottom} stroke="#dce2ea" strokeWidth="0.75" />);
+    lines.push(<line key={`v${x}`} x1={x} y1={PAD.top} x2={x} y2={H - PAD.bottom} stroke="#e5e7eb" strokeWidth="0.75" />);
   }
   for (let y = PAD.top; y <= H - PAD.bottom; y += 30.4) {
-    lines.push(<line key={`h${y}`} x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#dce2ea" strokeWidth="0.75" />);
+    lines.push(<line key={`h${y}`} x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#e5e7eb" strokeWidth="0.75" />);
   }
   return (
     <g>
       {lines}
-      <line x1={PAD.left} y1={H - PAD.bottom} x2={W - PAD.right} y2={H - PAD.bottom} stroke="#8792a2" strokeWidth="1" />
-      <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={H - PAD.bottom} stroke="#8792a2" strokeWidth="1" />
+      <line x1={PAD.left} y1={H - PAD.bottom} x2={W - PAD.right} y2={H - PAD.bottom} stroke="#8a93a3" strokeWidth="1" />
+      <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={H - PAD.bottom} stroke="#8a93a3" strokeWidth="1" />
     </g>
   );
 }
@@ -70,8 +70,8 @@ function survivalPath(random: () => number, hazard: number): string {
 function Survival({ random }: { random: () => number }) {
   return (
     <g fill="none" strokeWidth="2.25" strokeLinejoin="round">
-      <path d={survivalPath(random, 0.055)} stroke="#0e9aa7" />
-      <path d={survivalPath(random, 0.085)} stroke="#12284a" />
+      <path d={survivalPath(random, 0.055)} stroke="#14b8a6" />
+      <path d={survivalPath(random, 0.085)} stroke="#142b57" />
     </g>
   );
 }
@@ -89,18 +89,18 @@ function Forest({ random }: { random: () => number }) {
   });
   return (
     <g>
-      <line x1={nullX} y1={PAD.top} x2={nullX} y2={H - PAD.bottom} stroke="#8792a2" strokeDasharray="3 3" />
+      <line x1={nullX} y1={PAD.top} x2={nullX} y2={H - PAD.bottom} stroke="#8a93a3" strokeDasharray="3 3" />
       {items.map((item) =>
         item.isSummary ? (
           <polygon
             key={item.y}
             points={`${item.center - item.half},${item.y} ${item.center},${item.y - 6} ${item.center + item.half},${item.y} ${item.center},${item.y + 6}`}
-            fill="#0e9aa7"
+            fill="#14b8a6"
           />
         ) : (
           <g key={item.y}>
-            <line x1={item.center - item.half} y1={item.y} x2={item.center + item.half} y2={item.y} stroke="#12284a" strokeWidth="1.5" />
-            <rect x={item.center - item.size / 2} y={item.y - item.size / 2} width={item.size} height={item.size} fill="#12284a" />
+            <line x1={item.center - item.half} y1={item.y} x2={item.center + item.half} y2={item.y} stroke="#142b57" strokeWidth="1.5" />
+            <rect x={item.center - item.size / 2} y={item.y - item.size / 2} width={item.size} height={item.size} fill="#142b57" />
           </g>
         ),
       )}
@@ -127,10 +127,10 @@ function Distribution({ random }: { random: () => number }) {
   const peak = H - PAD.top - PAD.bottom - 16;
   return (
     <g>
-      <path d={bellPath(meanB, sd, peak, true)} fill="#d5f0f2" />
-      <path d={bellPath(meanB, sd, peak, false)} fill="none" stroke="#0e9aa7" strokeWidth="2" />
-      <path d={bellPath(meanA, sd, peak * 0.92, false)} fill="none" stroke="#12284a" strokeWidth="2" />
-      <line x1={meanB - 1.96 * sd} y1={H - PAD.bottom - 6} x2={meanB + 1.96 * sd} y2={H - PAD.bottom - 6} stroke="#0a6e78" strokeWidth="1.5" />
+      <path d={bellPath(meanB, sd, peak, true)} fill="#ccfbf1" />
+      <path d={bellPath(meanB, sd, peak, false)} fill="none" stroke="#14b8a6" strokeWidth="2" />
+      <path d={bellPath(meanA, sd, peak * 0.92, false)} fill="none" stroke="#142b57" strokeWidth="2" />
+      <line x1={meanB - 1.96 * sd} y1={H - PAD.bottom - 6} x2={meanB + 1.96 * sd} y2={H - PAD.bottom - 6} stroke="#0f766e" strokeWidth="1.5" />
     </g>
   );
 }
@@ -153,11 +153,11 @@ function Scatter({ random }: { random: () => number }) {
     <g>
       <polygon
         points={`${x0},${yAt(0) - band} ${x1},${yAt(1) - band} ${x1},${yAt(1) + band} ${x0},${yAt(0) + band}`}
-        fill="#d5f0f2"
+        fill="#ccfbf1"
       />
-      <line x1={x0} y1={yAt(0)} x2={x1} y2={yAt(1)} stroke="#0e9aa7" strokeWidth="2" />
+      <line x1={x0} y1={yAt(0)} x2={x1} y2={yAt(1)} stroke="#14b8a6" strokeWidth="2" />
       {points.map((point, index) => (
-        <circle key={index} cx={point.x} cy={point.y} r="3" fill="#12284a" />
+        <circle key={index} cx={point.x} cy={point.y} r="3" fill="#142b57" />
       ))}
     </g>
   );
@@ -180,9 +180,9 @@ function DoseResponse({ random }: { random: () => number }) {
   const ec50B = ec50A + 0.18 + random() * 0.12;
   return (
     <g fill="none" strokeWidth="2.25">
-      <path d={curve(ec50A, 12, 0.95)} stroke="#12284a" />
-      <path d={curve(ec50B, 10, 0.75)} stroke="#0e9aa7" />
-      <line x1={PAD.left + span * ec50A} y1={PAD.top} x2={PAD.left + span * ec50A} y2={H - PAD.bottom} stroke="#8792a2" strokeDasharray="3 3" strokeWidth="1" />
+      <path d={curve(ec50A, 12, 0.95)} stroke="#142b57" />
+      <path d={curve(ec50B, 10, 0.75)} stroke="#14b8a6" />
+      <line x1={PAD.left + span * ec50A} y1={PAD.top} x2={PAD.left + span * ec50A} y2={H - PAD.bottom} stroke="#8a93a3" strokeDasharray="3 3" strokeWidth="1" />
     </g>
   );
 }
@@ -195,7 +195,7 @@ export function FigureMotif({ seed, className }: { seed: string; className?: str
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className={className} aria-hidden="true" focusable="false">
-      <rect width={W} height={H} fill="#f3f5f8" />
+      <rect width={W} height={H} fill="#f5f7fa" />
       <Grid />
       {motif === 'survival' ? <Survival random={random} /> : null}
       {motif === 'forest' ? <Forest random={random} /> : null}

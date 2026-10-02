@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 
 import { formatBytes } from '@/utils/format';
 
-import { abandonPdfUploadAction, createPdfUploadAction, finalizePdfUploadAction, type UploadedFile } from '../actions';
+import type { UploadedFile } from '../types';
 
 export type UploadPhase = 'checking' | 'uploading' | 'verifying' | 'done' | 'error';
 
@@ -19,28 +19,34 @@ export interface UploadItem {
 
 type Target = { target: 'article'; articleId: string } | { target: 'cv' };
 
-const STORAGE_ERRORS: Record<number, string> = {
-  400: 'The upload link is invalid or has expired. Try again.',
-  413: 'The file is larger than the storage limit.',
-  415: 'Storage accepts PDF files only.',
-};
-
-/** PUT the file to the signed URL with progress events (fetch has no upload progress). */
-function putWithProgress(url: string, file: File, onProgress: (percent: number) => void): Promise<void> {
+/**
+ * POST the file to the validating Route Handler with progress events (fetch
+ * has no upload progress). The server answers only after it has checked the
+ * whole file and stored it.
+ */
+function postWithProgress(
+  url: string,
+  file: File,
+  handlers: { onProgress: (percent: number) => void; onUploaded: () => void },
+): Promise<UploadedFile> {
   return new Promise((resolve, reject) => {
+    const body = new FormData();
+    body.append('file', file);
+
     const request = new XMLHttpRequest();
-    request.open('PUT', url);
-    request.setRequestHeader('content-type', 'application/pdf');
-    request.setRequestHeader('x-upsert', 'false');
+    request.open('POST', url);
+    request.responseType = 'json';
     request.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+      if (event.lengthComputable) handlers.onProgress(Math.round((event.loaded / event.total) * 100));
     };
-    request.onload = () =>
-      request.status >= 200 && request.status < 300
-        ? resolve()
-        : reject(new Error(STORAGE_ERRORS[request.status] ?? `Storage rejected the upload (${request.status}).`));
+    request.upload.onload = handlers.onUploaded;
+    request.onload = () => {
+      const payload = request.response as (UploadedFile & { error?: string }) | null;
+      if (request.status >= 200 && request.status < 300 && payload && !payload.error) resolve(payload);
+      else reject(new Error(payload?.error ?? `The upload failed (${request.status}).`));
+    };
     request.onerror = () => reject(new Error('The connection was interrupted during upload.'));
-    request.send(file);
+    request.send(body);
   });
 }
 
@@ -74,39 +80,20 @@ export function usePdfUploads(options: Target & { maxBytes: number; onUploaded: 
       if (file.size > maxBytes) return failWith(`The file is larger than ${formatBytes(maxBytes)}.`);
       if (!(await looksLikePdf(file))) return failWith('This file is not a valid PDF.');
 
-      const intent =
-        targetKey === 'cv'
-          ? { target: 'cv' as const, filename: file.name, size: file.size, mimeType: 'application/pdf' }
-          : { target: 'article' as const, articleId: targetKey, filename: file.name, size: file.size, mimeType: 'application/pdf' };
-
-      let ticket;
-      try {
-        ticket = await createPdfUploadAction(intent);
-      } catch {
-        return failWith('The server could not be reached.');
-      }
-      if (!ticket.ok) return failWith(ticket.error);
-
+      const query = targetKey === 'cv' ? 'target=cv' : `target=article&articleId=${encodeURIComponent(targetKey)}`;
       update(key, { phase: 'uploading' });
+      let uploaded: UploadedFile;
       try {
-        await putWithProgress(ticket.data.signedUrl, file, (progress) => update(key, { progress }));
+        uploaded = await postWithProgress(`/api/admin/uploads/pdf?${query}`, file, {
+          onProgress: (progress) => update(key, { progress }),
+          onUploaded: () => update(key, { phase: 'verifying', progress: 100 }),
+        });
       } catch (error) {
-        // Release the reservation so no orphaned record or partial object remains.
-        void abandonPdfUploadAction(ticket.data.fileId).catch(() => undefined);
         return failWith(error instanceof Error ? error.message : 'Upload failed.');
       }
 
-      update(key, { phase: 'verifying', progress: 100 });
-      let finalized;
-      try {
-        finalized = await finalizePdfUploadAction(ticket.data.fileId);
-      } catch {
-        return failWith('The server could not verify the upload.');
-      }
-      if (!finalized.ok) return failWith(finalized.error);
-
       update(key, { phase: 'done' });
-      onUploaded(finalized.data);
+      onUploaded(uploaded);
       // Completed rows disappear once the file shows up in the list.
       setTimeout(() => setItems((current) => current.filter((item) => item.key !== key)), 1500);
     },

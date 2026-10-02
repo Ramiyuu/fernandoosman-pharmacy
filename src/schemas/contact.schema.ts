@@ -5,6 +5,8 @@ export const contactSchema = z.object({
   email: z.email('Enter a valid email address.').trim().max(254),
   subject: z.string().trim().max(200, 'Use at most 200 characters.'),
   message: z.string().trim().min(10, 'Write at least 10 characters.').max(5000, 'Use at most 5,000 characters.'),
+  // LGPD: the sender must accept the privacy notice; checked again on the server.
+  consent: z.boolean().refine((value) => value, 'Accept the privacy notice to send your message.'),
   // Honeypot: hidden from people, filled in by naive bots.
   website: z.string().max(200),
 });

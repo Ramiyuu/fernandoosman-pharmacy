@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { Tagline, Wordmark } from '@/components/brand/brand';
 import { LinkedInIcon } from '@/components/icons/brand-icons';
 import { Container } from '@/components/layout/container';
 import { buttonVariants } from '@/components/ui/button';
@@ -13,18 +14,17 @@ export function Hero({ profile }: { profile: SiteProfile }) {
     <section aria-labelledby="hero-heading" className="border-b border-rule">
       <Container className="grid gap-12 py-14 sm:py-20 lg:grid-cols-[1fr_22rem] lg:items-end lg:gap-16">
         <div>
-          <h1
+          <Wordmark
+            as="h1"
             id="hero-heading"
-            className="display-condensed text-[3.25rem] leading-[0.92] font-semibold tracking-[-0.02em] text-ink sm:text-7xl lg:text-[5.75rem]"
-          >
-            {profile.full_name}
-          </h1>
-          <p className="mt-5 text-xl font-medium text-navy-800 sm:text-2xl">{profile.headline}</p>
-          {profile.focus_areas.length > 0 ? (
-            <p className="mt-2 text-base text-teal-700 sm:text-lg">{profile.focus_areas.join(' • ')}</p>
-          ) : null}
+            name={profile.full_name}
+            className="text-[2.375rem] leading-[1.08] tracking-[0.1em] sm:text-6xl lg:text-[4.25rem]"
+          />
+          <span className="brand-gradient mt-6 block h-[3px] w-24 rounded-full" aria-hidden="true" />
+          <Tagline items={profile.focus_areas} className="mt-5 text-base font-light sm:text-lg" />
+          {profile.headline ? <p className="mt-6 text-xl font-semibold text-navy-900 sm:text-2xl">{profile.headline}</p> : null}
           {profile.short_bio ? (
-            <p className="mt-6 max-w-[34rem] font-serif text-xl leading-relaxed text-navy-900">{profile.short_bio}</p>
+            <p className="mt-4 max-w-[34rem] font-serif text-xl leading-relaxed text-navy-900">{profile.short_bio}</p>
           ) : null}
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/articles" className={buttonVariants({ size: 'lg' })}>

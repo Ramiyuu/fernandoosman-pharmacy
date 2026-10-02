@@ -13,7 +13,7 @@ export default async function EditProjectPage({ params }: PageProps<'/admin/proj
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  const [project, tags] = await Promise.all([getProjectForEditor(session.supabase, id), getTagSuggestions(session.supabase)]);
+  const [project, tags] = await Promise.all([getProjectForEditor(session.db, id), getTagSuggestions(session.db)]);
   if (!project) notFound();
   return <ProjectEditor key={project.id} project={project} tagSuggestions={tags} />;
 }

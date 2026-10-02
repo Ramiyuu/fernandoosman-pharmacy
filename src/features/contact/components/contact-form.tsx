@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CircleCheck, LoaderCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -12,7 +13,7 @@ import { contactSchema, type ContactInput } from '@/schemas/contact.schema';
 
 import { submitContactAction } from '../actions';
 
-export function ContactForm() {
+export function ContactForm({ retention }: { retention: string }) {
   const [status, setStatus] = useState<'idle' | 'sent'>('idle');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -24,7 +25,7 @@ export function ContactForm() {
     formState: { errors, isSubmitting },
   } = useForm<ContactInput>({
     resolver: zodResolver(contactSchema),
-    defaultValues: { name: '', email: '', subject: '', message: '', website: '' },
+    defaultValues: { name: '', email: '', subject: '', message: '', consent: false, website: '' },
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -96,6 +97,31 @@ export function ContactForm() {
         />
       </Field>
 
+      <div>
+        <div className="flex items-start gap-3">
+          <input
+            id="contact-consent"
+            type="checkbox"
+            className="mt-0.5 size-4 shrink-0 accent-teal-600"
+            aria-invalid={Boolean(errors.consent)}
+            aria-describedby={errors.consent ? 'contact-consent-error' : undefined}
+            {...register('consent')}
+          />
+          <label htmlFor="contact-consent" className="text-sm text-navy-800">
+            I agree that my name, email and message are used only to reply to me, as described in the{' '}
+            <Link href="/privacy" className="font-medium text-azure-700 underline underline-offset-2">
+              privacy notice
+            </Link>
+            . <span lang="pt-BR">(Concordo com o uso dos meus dados apenas para responder a esta mensagem.)</span>
+          </label>
+        </div>
+        {errors.consent?.message ? (
+          <p id="contact-consent-error" className="mt-1.5 text-sm text-danger-700">
+            {errors.consent.message}
+          </p>
+        ) : null}
+      </div>
+
       {/* Honeypot: visually hidden and skipped by assistive technology. */}
       <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
         <label htmlFor="contact-website">Website</label>
@@ -112,7 +138,9 @@ export function ContactForm() {
         {isSubmitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
         Send message
       </Button>
-      <p className="text-xs text-muted">Your name, email and message are stored only to reply to you.</p>
+      <p className="text-xs text-muted">
+        Messages are deleted automatically after {retention}, or earlier on request. No tracking cookies are used on this site.
+      </p>
     </form>
   );
 }
