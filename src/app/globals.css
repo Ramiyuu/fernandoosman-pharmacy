@@ -1,0 +1,397 @@
+@import 'tailwindcss';
+
+/* -----------------------------------------------------------------------------
+ * Design tokens
+ * A deliberately small palette: navy for text and structure, blue for actions,
+ * teal as the single accent (data marks, focus), greys for surfaces and rules.
+ * Tailwind's default colours are disabled so nothing off-palette slips in.
+ * -------------------------------------------------------------------------- */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-ink: #0b1b33;
+  --color-navy-950: #071226;
+  --color-navy-900: #0b1b33;
+  --color-navy-800: #12284a;
+  --color-navy-700: #1b3a68;
+  --color-navy-200: #c9d4e4;
+  --color-navy-100: #e3e9f2;
+  --color-navy-50: #f1f4f9;
+
+  --color-azure-800: #123f80;
+  --color-azure-700: #164c99;
+  --color-azure-600: #1f5fbf;
+  --color-azure-500: #2f73d6;
+  --color-azure-100: #dce7f8;
+  --color-azure-50: #eef4fc;
+
+  --color-teal-700: #0a6e78;
+  --color-teal-600: #0b7f8a;
+  --color-teal-500: #0e9aa7;
+  --color-teal-200: #a9dfe4;
+  --color-teal-100: #d5f0f2;
+  --color-teal-50: #ecf8f9;
+
+  --color-mist: #f3f5f8;
+  --color-rule: #dce2ea;
+  --color-rule-strong: #c3ccd8;
+  --color-muted: #566170;
+  --color-subtle: #8792a2;
+
+  --color-success-700: #1b6e45;
+  --color-success-50: #e8f5ee;
+  --color-warning-700: #8a4b00;
+  --color-warning-50: #fff4e0;
+  --color-danger-700: #b42318;
+  --color-danger-600: #d0302a;
+  --color-danger-50: #fdecea;
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --shadow-raise: 0 1px 2px rgb(11 27 51 / 0.06), 0 8px 24px -12px rgb(11 27 51 / 0.18);
+  --shadow-overlay: 0 24px 64px -16px rgb(7 18 38 / 0.35);
+
+  --container-prose: 68ch;
+  --container-page: 76rem;
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-dialog-in: dialog-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  /* Uses the individual `scale` property so it never fights the `translate`
+     utilities that centre the dialog. */
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      scale: 0.97;
+    }
+    to {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-white);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'kern', 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-teal-100);
+    color: var(--color-navy-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-teal-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+@utility display-condensed {
+  font-stretch: 80%;
+  font-variation-settings: 'wdth' 80;
+}
+
+@utility page-gutter {
+  padding-inline: 1rem;
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+ * Long-form article typography (journal style: serif body, sans headings).
+ * Applied by <RichContent />; every element is produced by our own renderer.
+ * -------------------------------------------------------------------------- */
+@layer components {
+  .article-body {
+    font-family: var(--font-serif);
+    font-size: 1.1875rem;
+    line-height: 1.75;
+    color: var(--color-navy-900);
+    font-optical-sizing: auto;
+  }
+
+  .article-body > * + * {
+    margin-top: 1.25em;
+  }
+
+  .article-body h2,
+  .article-body h3,
+  .article-body h4 {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    scroll-margin-top: 6rem;
+  }
+
+  .article-body h2 {
+    font-size: 1.625rem;
+    font-weight: 600;
+    margin-top: 2.25em;
+    padding-top: 0.75em;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .article-body h3 {
+    font-size: 1.3125rem;
+    font-weight: 600;
+    margin-top: 1.75em;
+  }
+
+  .article-body h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5em;
+  }
+
+  .article-body h2 + *,
+  .article-body h3 + *,
+  .article-body h4 + * {
+    margin-top: 0.75em;
+  }
+
+  .article-body a {
+    color: var(--color-azure-700);
+    text-decoration: underline;
+    text-decoration-color: var(--color-azure-100);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 120ms ease;
+  }
+
+  .article-body a:hover {
+    text-decoration-color: var(--color-azure-600);
+  }
+
+  .article-body ul,
+  .article-body ol {
+    padding-left: 1.35em;
+  }
+
+  .article-body ul {
+    list-style: disc;
+  }
+
+  .article-body ol {
+    list-style: decimal;
+  }
+
+  .article-body li + li {
+    margin-top: 0.4em;
+  }
+
+  .article-body li::marker {
+    color: var(--color-teal-600);
+  }
+
+  .article-body li > p + p {
+    margin-top: 0.5em;
+  }
+
+  .article-body blockquote {
+    border-left: 3px solid var(--color-teal-500);
+    padding: 0.25em 0 0.25em 1.1em;
+    color: var(--color-navy-800);
+    font-style: italic;
+  }
+
+  .article-body code {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    background: var(--color-mist);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    padding: 0.1em 0.35em;
+  }
+
+  .article-body pre {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    background: var(--color-navy-950);
+    color: var(--color-navy-50);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+  }
+
+  .article-body pre code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .article-body hr {
+    border: 0;
+    border-top: 1px solid var(--color-rule);
+    margin: 2.5em 0;
+  }
+
+  .article-body sup,
+  .article-body sub {
+    font-size: 0.7em;
+    line-height: 0;
+  }
+
+  .article-body .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5em 0;
+  }
+
+  /* Editor-only affordances (admin). */
+  .rich-editor p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    color: var(--color-subtle);
+    pointer-events: none;
+  }
+
+  .rich-editor .editor-callout {
+    border: 1px solid var(--color-teal-100);
+    background: var(--color-teal-50);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+  }
+
+  .rich-editor .editor-callout[data-variant='warning'] {
+    border-color: var(--color-warning-50);
+    background: var(--color-warning-50);
+  }
+
+  .rich-editor .editor-callout[data-variant='note'] {
+    border-color: var(--color-rule);
+    background: var(--color-mist);
+  }
+
+  .rich-editor .editor-callout[data-variant='info'] {
+    border-color: var(--color-azure-100);
+    background: var(--color-azure-50);
+  }
+
+  .rich-editor .editor-citation {
+    color: var(--color-azure-700);
+    font-family: var(--font-sans);
+    font-size: 0.7em;
+  }
+
+  .rich-editor table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+  }
+
+  .rich-editor th,
+  .rich-editor td {
+    border: 1px solid var(--color-rule);
+    padding: 0.4rem 0.6rem;
+    vertical-align: top;
+    position: relative;
+  }
+
+  .rich-editor th {
+    background: var(--color-mist);
+    font-weight: 600;
+  }
+
+  .rich-editor .selectedCell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(14 154 167 / 0.12);
+    pointer-events: none;
+  }
+
+  .rich-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-lg);
+  }
+
+  .rich-editor .ProseMirror-selectednode {
+    outline: 2px solid var(--color-teal-500);
+    outline-offset: 2px;
+  }
+
+  .rich-editor [data-type='block-math'] {
+    cursor: pointer;
+    background: var(--color-mist);
+    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    text-align: center;
+  }
+
+  .rich-editor [data-type='inline-math'] {
+    cursor: pointer;
+  }
+}
