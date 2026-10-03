@@ -3,19 +3,53 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CircleCheck, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
 import { describedBy, Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
-import { contactSchema, type ContactInput } from '@/schemas/contact.schema';
+import type { Locale } from '@/i18n/config';
+import { contactSchemaWith, type ContactInput } from '@/schemas/contact.schema';
 
 import { submitContactAction } from '../actions';
 
-export function ContactForm({ retention }: { retention: string }) {
+/** Every string the form shows, already in the visitor's language. */
+export interface ContactFormCopy {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  consentBefore: string;
+  consentLink: string;
+  consentAfter: string;
+  sentTitle: string;
+  sentBody: string;
+  sendAnother: string;
+  send: string;
+  retention: string;
+  unreachable: string;
+  validation: {
+    name: string;
+    email: string;
+    message: string;
+    consent: string;
+    /** "Use at most N characters." keyed by N (120, 200, 5000). */
+    tooLong: Record<number, string>;
+  };
+}
+
+export function ContactForm({ locale, copy, privacyHref }: { locale: Locale; copy: ContactFormCopy; privacyHref: string }) {
   const [status, setStatus] = useState<'idle' | 'sent'>('idle');
   const [formError, setFormError] = useState<string | null>(null);
+  const schema = useMemo(
+    () =>
+      contactSchemaWith({
+        ...copy.validation,
+        tooLong: (max) => copy.validation.tooLong[max] ?? copy.validation.tooLong[5000],
+      }),
+    [copy.validation],
+  );
 
   const {
     register,
@@ -24,13 +58,17 @@ export function ContactForm({ retention }: { retention: string }) {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ContactInput>({
-    resolver: zodResolver(contactSchema),
+    resolver: zodResolver(schema),
     defaultValues: { name: '', email: '', subject: '', message: '', consent: false, website: '' },
   });
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
-    const result = await submitContactAction(values);
+    const result = await submitContactAction(values, locale).catch(() => null);
+    if (!result) {
+      setFormError(copy.unreachable);
+      return;
+    }
     if (result.ok) {
       reset();
       setStatus('sent');
@@ -44,13 +82,13 @@ export function ContactForm({ retention }: { retention: string }) {
 
   if (status === 'sent') {
     return (
-      <div role="status" className="rounded-xl border border-teal-100 bg-teal-50 p-6">
+      <div role="status" className="contact-sent rounded-xl border border-teal-100 bg-teal-50 p-6">
         <p className="flex items-center gap-2 font-semibold text-ink">
-          <CircleCheck className="size-5 text-teal-700" aria-hidden="true" /> Message sent
+          <CircleCheck className="size-5 text-teal-700" aria-hidden="true" /> {copy.sentTitle}
         </p>
-        <p className="mt-2 text-sm text-navy-800">Thanks for writing. You will get a reply at the email address you provided.</p>
+        <p className="mt-2 text-sm text-navy-800">{copy.sentBody}</p>
         <Button variant="link" className="mt-3" onClick={() => setStatus('idle')}>
-          Send another message
+          {copy.sendAnother}
         </Button>
       </div>
     );
@@ -59,7 +97,7 @@ export function ContactForm({ retention }: { retention: string }) {
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5" aria-describedby={formError ? 'contact-form-error' : undefined}>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="contact-name" label="Name" required error={errors.name?.message}>
+        <Field id="contact-name" label={copy.name} required error={errors.name?.message}>
           <Input
             id="contact-name"
             autoComplete="name"
@@ -68,7 +106,7 @@ export function ContactForm({ retention }: { retention: string }) {
             {...register('name')}
           />
         </Field>
-        <Field id="contact-email" label="Email" required error={errors.email?.message}>
+        <Field id="contact-email" label={copy.email} required error={errors.email?.message}>
           <Input
             id="contact-email"
             type="email"
@@ -79,7 +117,7 @@ export function ContactForm({ retention }: { retention: string }) {
           />
         </Field>
       </div>
-      <Field id="contact-subject" label="Subject" error={errors.subject?.message}>
+      <Field id="contact-subject" label={copy.subject} error={errors.subject?.message}>
         <Input
           id="contact-subject"
           aria-invalid={Boolean(errors.subject)}
@@ -87,7 +125,7 @@ export function ContactForm({ retention }: { retention: string }) {
           {...register('subject')}
         />
       </Field>
-      <Field id="contact-message" label="Message" required error={errors.message?.message}>
+      <Field id="contact-message" label={copy.message} required error={errors.message?.message}>
         <Textarea
           id="contact-message"
           rows={7}
@@ -108,11 +146,11 @@ export function ContactForm({ retention }: { retention: string }) {
             {...register('consent')}
           />
           <label htmlFor="contact-consent" className="text-sm text-navy-800">
-            I agree that my name, email and message are used only to reply to me, as described in the{' '}
-            <Link href="/privacy" className="font-medium text-azure-700 underline underline-offset-2">
-              privacy notice
+            {copy.consentBefore}{' '}
+            <Link href={privacyHref} className="font-medium text-azure-700 underline underline-offset-2">
+              {copy.consentLink}
             </Link>
-            . <span lang="pt-BR">(Concordo com o uso dos meus dados apenas para responder a esta mensagem.)</span>
+            {copy.consentAfter}
           </label>
         </div>
         {errors.consent?.message ? (
@@ -136,11 +174,9 @@ export function ContactForm({ retention }: { retention: string }) {
 
       <Button type="submit" size="lg" disabled={isSubmitting}>
         {isSubmitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-        Send message
+        {copy.send}
       </Button>
-      <p className="text-xs text-muted">
-        Messages are deleted automatically after {retention}, or earlier on request. No tracking cookies are used on this site.
-      </p>
+      <p className="text-xs text-muted">{copy.retention}</p>
     </form>
   );
 }

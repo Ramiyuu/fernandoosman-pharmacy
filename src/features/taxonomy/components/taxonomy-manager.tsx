@@ -20,8 +20,10 @@ type Kind = 'topic' | 'category' | 'tag';
 export interface TaxonomyItem {
   id: string;
   name: string;
+  name_pt?: string;
   slug: string;
   description?: string;
+  description_pt?: string;
   icon?: string;
   sort_order?: number;
   usage: number;
@@ -37,13 +39,24 @@ const LABELS: Record<Kind, { singular: string; plural: string }> = {
 interface Draft {
   id: string | null;
   name: string;
+  name_pt: string;
   slug: string;
   description: string;
+  description_pt: string;
   icon: string;
   sort_order: string;
 }
 
-const emptyDraft = (kind: Kind): Draft => ({ id: null, name: '', slug: '', description: '', icon: kind === 'topic' ? 'flask-conical' : '', sort_order: '0' });
+const emptyDraft = (kind: Kind): Draft => ({
+  id: null,
+  name: '',
+  name_pt: '',
+  slug: '',
+  description: '',
+  description_pt: '',
+  icon: kind === 'topic' ? 'flask-conical' : '',
+  sort_order: '0',
+});
 
 export function TaxonomyManager({ kind, items }: { kind: Kind; items: TaxonomyItem[] }) {
   const { run } = useActionRunner();
@@ -60,8 +73,10 @@ export function TaxonomyManager({ kind, items }: { kind: Kind; items: TaxonomyIt
         ? {
             id: item.id,
             name: item.name,
+            name_pt: item.name_pt ?? '',
             slug: item.slug,
             description: item.description ?? '',
+            description_pt: item.description_pt ?? '',
             icon: item.icon ?? 'flask-conical',
             sort_order: String(item.sort_order ?? 0),
           }
@@ -76,9 +91,28 @@ export function TaxonomyManager({ kind, items }: { kind: Kind; items: TaxonomyIt
     try {
       const action =
         kind === 'topic'
-          ? () => saveTopicAction({ id: draft.id, name: draft.name, slug: draft.slug, description: draft.description, icon: draft.icon, sort_order: draft.sort_order })
+          ? () =>
+              saveTopicAction({
+                id: draft.id,
+                name: draft.name,
+                name_pt: draft.name_pt,
+                slug: draft.slug,
+                description: draft.description,
+                description_pt: draft.description_pt,
+                icon: draft.icon,
+                sort_order: draft.sort_order,
+              })
           : kind === 'category'
-            ? () => saveCategoryAction({ id: draft.id, name: draft.name, slug: draft.slug, description: draft.description, sort_order: draft.sort_order })
+            ? () =>
+                saveCategoryAction({
+                  id: draft.id,
+                  name: draft.name,
+                  name_pt: draft.name_pt,
+                  slug: draft.slug,
+                  description: draft.description,
+                  description_pt: draft.description_pt,
+                  sort_order: draft.sort_order,
+                })
             : () => saveTagAction({ id: draft.id, name: draft.name });
       await run(action);
       setDraft(null);
@@ -119,6 +153,17 @@ export function TaxonomyManager({ kind, items }: { kind: Kind; items: TaxonomyIt
                     <div className="flex items-center gap-2">
                       {kind === 'topic' && item.icon ? <TopicIcon name={item.icon} className="size-4 text-teal-600" /> : null}
                       <span className="font-medium text-ink">{item.name}</span>
+                      {kind !== 'tag' ? (
+                        item.name_pt ? (
+                          <span className="text-sm text-muted" lang="pt-BR">
+                            / {item.name_pt}
+                          </span>
+                        ) : (
+                          <span className="rounded-sm bg-warning-50 px-1.5 py-0.5 text-[0.6875rem] font-medium text-warning-700">
+                            PT missing
+                          </span>
+                        )
+                      ) : null}
                     </div>
                     <p className="text-xs text-muted">{item.slug}</p>
                   </td>
@@ -147,16 +192,37 @@ export function TaxonomyManager({ kind, items }: { kind: Kind; items: TaxonomyIt
           <DialogDescription className="sr-only">Fill in the details and save.</DialogDescription>
           {draft ? (
             <form onSubmit={submit} className="mt-4 space-y-4">
-              <Field id="taxonomy-name" label="Name" required>
+              <Field id="taxonomy-name" label={kind === 'tag' ? 'Name' : 'Name (English)'} required>
                 <Input id="taxonomy-name" value={draft.name} maxLength={kind === 'tag' ? 50 : 80} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
               </Field>
+              {kind !== 'tag' ? (
+                <Field id="taxonomy-name-pt" label="Name (Portuguese)" hint="Shown on /pt pages. Empty uses the English name.">
+                  <Input
+                    id="taxonomy-name-pt"
+                    lang="pt-BR"
+                    value={draft.name_pt}
+                    maxLength={80}
+                    onChange={(event) => setDraft({ ...draft, name_pt: event.target.value })}
+                  />
+                </Field>
+              ) : null}
               {kind !== 'tag' ? (
                 <>
                   <Field id="taxonomy-slug" label="Slug" hint="Leave empty to generate from the name.">
                     <Input id="taxonomy-slug" value={draft.slug} spellCheck={false} onChange={(event) => setDraft({ ...draft, slug: event.target.value })} />
                   </Field>
-                  <Field id="taxonomy-description" label="Description">
+                  <Field id="taxonomy-description" label="Description (English)">
                     <Textarea id="taxonomy-description" rows={3} maxLength={500} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+                  </Field>
+                  <Field id="taxonomy-description-pt" label="Description (Portuguese)">
+                    <Textarea
+                      id="taxonomy-description-pt"
+                      lang="pt-BR"
+                      rows={3}
+                      maxLength={500}
+                      value={draft.description_pt}
+                      onChange={(event) => setDraft({ ...draft, description_pt: event.target.value })}
+                    />
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
                     {kind === 'topic' ? (

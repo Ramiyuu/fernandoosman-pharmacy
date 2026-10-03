@@ -124,6 +124,46 @@ export async function saveArticleAction(
   return ok({ ...result, reading_time: readingTime });
 }
 
+/**
+ * Opens the version of an article in another language, creating it first
+ * when missing: a draft copy (text, references, topics, tags, cover) to
+ * translate. PDFs are not copied.
+ */
+export async function createArticleTranslationAction(input: {
+  id: string;
+  language: 'en' | 'pt';
+}): Promise<ActionResult<{ id: string; created: boolean }>> {
+  const guard = await guardAction('articles:write');
+  if (!guard.ok) return guard;
+  const { db, userId } = guard.session;
+  if (!uuidSchema.safeParse(input.id).success || !['en', 'pt'].includes(input.language)) return fail('Invalid request.');
+
+  let result: { id: string; created: boolean };
+  try {
+    const row = await db.one<{ result: { id: string; created: boolean } }>(
+      sql`select public.admin_create_article_translation(${input.id}::uuid, ${input.language}) as result`,
+    );
+    result = row.result;
+  } catch (error) {
+    return failFromDbError('articles.translate', error);
+  }
+
+  if (result.created) {
+    await logActivity(db, userId, {
+      action: 'article_created',
+      entityType: 'article',
+      entityId: result.id,
+      summary: `${input.language === 'pt' ? 'Portuguese' : 'English'} version created from ${input.id}`,
+    });
+  }
+  return ok(
+    result,
+    result.created
+      ? `${input.language === 'pt' ? 'Portuguese' : 'English'} draft created. Translate it and publish when ready.`
+      : 'Opening the existing version.',
+  );
+}
+
 export async function setArticleStatusAction(input: {
   id: string;
   status: ContentStatus;

@@ -5,7 +5,7 @@ import { Archive, ArrowLeft, Eye, EyeOff, LoaderCircle, MoreHorizontal, Save, Se
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useForm, type FieldPath } from 'react-hook-form';
+import { useForm, useWatch, type FieldPath } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { RichTextEditor } from '@/components/editor/rich-text-editor';
@@ -21,15 +21,22 @@ import {
 import { describedBy, Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
 import { StatusBadge } from '@/features/admin/components/admin-page';
+import { TranslationSwitcher } from '@/features/admin/components/translation-switcher';
 import { useDebouncedEffect } from '@/hooks/use-debounced-effect';
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning';
+import { localizePath } from '@/i18n/routing';
 import { EMPTY_DOC } from '@/lib/content/rich-text';
 import type { EditorArticle, EditorOptions } from '@/services/admin/articles.admin';
 import type { ContentStatus } from '@/types/database.types';
 import { formatDate, formatDateTime } from '@/utils/format';
 import { slugify } from '@/utils/slugify';
 
-import { deleteArticleAction, saveArticleAction, setArticleStatusAction } from '../actions';
+import {
+  createArticleTranslationAction,
+  deleteArticleAction,
+  saveArticleAction,
+  setArticleStatusAction,
+} from '../actions';
 
 import { toArticleInput, toFormValues, type ArticleFormValues } from './article-form-values';
 import { ArticleSettingsPanel } from './article-settings-panel';
@@ -98,6 +105,7 @@ export function ArticleEditor({ article, options, maxPdfBytes }: ArticleEditorPr
   }, [form, setValue, bump]);
 
   const dirty = version !== savedVersion;
+  const currentLanguage = useWatch({ control: form.control, name: 'language' });
   useUnsavedChangesWarning(dirty || saveState === 'saving');
 
   const save = useCallback(
@@ -216,6 +224,21 @@ export function ArticleEditor({ article, options, maxPdfBytes }: ArticleEditorPr
     router.push('/admin/articles?view=trash');
   };
 
+  const openTranslation = async (language: 'en' | 'pt') => {
+    if (dirty || !idRef.current) {
+      const saved = await save({ autosave: false });
+      if (!saved || !idRef.current) return;
+    }
+    const result = await createArticleTranslationAction({ id: idRef.current, language }).catch(() => null);
+    if (!result || !result.ok) {
+      toast.error(result?.error ?? 'Could not reach the server.');
+      return;
+    }
+    setSavedVersion(versionRef.current);
+    toast.success(result.message ?? 'Opening the other version.');
+    router.push(`/admin/articles/${result.data.id}`);
+  };
+
   const saveLabel = status === 'draft' ? 'Save draft' : 'Save changes';
   const stateText =
     saveState === 'saving'
@@ -244,6 +267,13 @@ export function ArticleEditor({ article, options, maxPdfBytes }: ArticleEditorPr
             <ArrowLeft className="size-4" aria-hidden="true" /> Articles
           </Link>
           <StatusBadge status={status} />
+          <TranslationSwitcher
+            currentId={articleId}
+            currentLanguage={currentLanguage}
+            versions={article?.versions ?? []}
+            basePath="/admin/articles"
+            onCreate={openTranslation}
+          />
           <p className="text-xs text-muted" role="status" aria-live="polite">
             {saveState === 'saving' ? <LoaderCircle className="mr-1 inline size-3 animate-spin" aria-hidden="true" /> : null}
             {stateText}
@@ -364,7 +394,11 @@ export function ArticleEditor({ article, options, maxPdfBytes }: ArticleEditorPr
               </div>
             </dl>
             {status === 'published' && articleId ? (
-              <Link href={`/articles/${getValues('slug')}`} target="_blank" className="mt-3 inline-block text-azure-700 hover:underline">
+              <Link
+                href={localizePath(currentLanguage, `/articles/${getValues('slug')}`)}
+                target="_blank"
+                className="mt-3 inline-block text-azure-700 hover:underline"
+              >
                 View on site
               </Link>
             ) : null}
@@ -372,6 +406,7 @@ export function ArticleEditor({ article, options, maxPdfBytes }: ArticleEditorPr
           <ArticleSettingsPanel
             form={form}
             options={options}
+            hasTranslations={Boolean(article?.versions.length) && !article?.translation_of_article_id}
             onSlugEdited={(value) => {
               slugTouched.current = value.trim() !== '';
             }}

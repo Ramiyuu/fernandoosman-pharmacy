@@ -37,7 +37,7 @@ emit();
 emit('-- Topics');
 for (const [index, topic] of topics.entries()) {
   emit(
-    `insert into public.topics (name, slug, description, icon, sort_order) values (${str(topic.name)}, ${str(topic.slug)}, ${str(topic.description)}, ${str(topic.icon)}, ${index + 1}) on conflict (slug) do nothing;`,
+    `insert into public.topics (name, name_pt, slug, description, description_pt, icon, sort_order) values (${str(topic.name)}, ${str(topic.name_pt ?? '')}, ${str(topic.slug)}, ${str(topic.description)}, ${str(topic.description_pt ?? '')}, ${str(topic.icon)}, ${index + 1}) on conflict (slug) do nothing;`,
   );
 }
 emit();
@@ -45,7 +45,7 @@ emit();
 emit('-- Categories');
 for (const [index, category] of categories.entries()) {
   emit(
-    `insert into public.categories (name, slug, description, sort_order) values (${str(category.name)}, ${str(category.slug)}, ${str(category.description)}, ${index + 1}) on conflict (slug) do nothing;`,
+    `insert into public.categories (name, name_pt, slug, description, sort_order) values (${str(category.name)}, ${str(category.name_pt ?? '')}, ${str(category.slug)}, ${str(category.description)}, ${index + 1}) on conflict (slug) do nothing;`,
   );
 }
 emit();

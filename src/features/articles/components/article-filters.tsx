@@ -10,6 +10,19 @@ import { languageLabel } from '@/utils/format';
 interface ArticleFiltersProps {
   options: ArticleFilterOptions;
   active: ArticleFilters;
+  /** Localised /articles path the form submits to. */
+  action: string;
+  labels: {
+    ariaLabel: string;
+    topic: string;
+    category: string;
+    tag: string;
+    language: string;
+    year: string;
+    all: string;
+    apply: string;
+    clear: string;
+  };
 }
 
 /**
@@ -17,21 +30,21 @@ interface ArticleFiltersProps {
  * without JavaScript (the Apply button). With JavaScript, changing a select
  * submits immediately via client-side navigation.
  */
-export function ArticleFiltersBar({ options, active }: ArticleFiltersProps) {
+export function ArticleFiltersBar({ options, active, action, labels }: ArticleFiltersProps) {
   const fields = [
-    { name: 'topic', label: 'Topic', value: active.topic ?? '', options: options.topics.map((o) => ({ value: o.slug, label: `${o.name} (${o.count})` })) },
-    { name: 'category', label: 'Category', value: active.category ?? '', options: options.categories.map((o) => ({ value: o.slug, label: `${o.name} (${o.count})` })) },
-    { name: 'tag', label: 'Tag', value: active.tag ?? '', options: options.tags.map((o) => ({ value: o.slug, label: `${o.name} (${o.count})` })) },
-    { name: 'language', label: 'Language', value: active.language ?? '', options: options.languages.map((code) => ({ value: code, label: languageLabel(code) })) },
-    { name: 'year', label: 'Year', value: active.year ? String(active.year) : '', options: options.years.map((year) => ({ value: String(year), label: String(year) })) },
+    { name: 'topic', label: labels.topic, value: active.topic ?? '', options: options.topics.map((o) => ({ value: o.slug, label: `${o.name} (${o.count})` })) },
+    { name: 'category', label: labels.category, value: active.category ?? '', options: options.categories.map((o) => ({ value: o.slug, label: `${o.name} (${o.count})` })) },
+    { name: 'tag', label: labels.tag, value: active.tag ?? '', options: options.tags.map((o) => ({ value: o.slug, label: `${o.name} (${o.count})` })) },
+    { name: 'language', label: labels.language, value: active.language ?? '', options: options.languages.map((code) => ({ value: code, label: languageLabel(code) })) },
+    { name: 'year', label: labels.year, value: active.year ? String(active.year) : '', options: options.years.map((year) => ({ value: String(year), label: String(year) })) },
   ];
 
   return (
     <Form
-      action="/articles"
+      action={action}
       className="grid grid-cols-2 gap-3 md:grid-cols-[repeat(5,minmax(0,1fr))_auto] md:items-end"
       onChange={(event) => event.currentTarget.requestSubmit()}
-      aria-label="Filter articles"
+      aria-label={labels.ariaLabel}
     >
       {fields.map((field) => (
         <div key={field.name} className="flex flex-col gap-1">
@@ -39,7 +52,7 @@ export function ArticleFiltersBar({ options, active }: ArticleFiltersProps) {
             {field.label}
           </label>
           <NativeSelect id={`filter-${field.name}`} name={field.name} defaultValue={field.value} key={field.value}>
-            <option value="">All</option>
+            <option value="">{labels.all}</option>
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -51,11 +64,11 @@ export function ArticleFiltersBar({ options, active }: ArticleFiltersProps) {
       <div className="col-span-2 flex items-center gap-3 md:col-span-1">
         <noscript>
           <button type="submit" className="h-10 rounded-md bg-navy-900 px-4 text-sm text-white">
-            Apply
+            {labels.apply}
           </button>
         </noscript>
-        <Link href="/articles" className="text-sm text-azure-700 hover:underline">
-          Clear
+        <Link href={action} className="text-sm text-azure-700 hover:underline">
+          {labels.clear}
         </Link>
       </div>
     </Form>

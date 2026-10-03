@@ -1,11 +1,14 @@
+import type { Dictionary } from '@/i18n/dictionaries/en';
+
+/** Public navigation: internal paths (localised by the i18n helpers) and their label keys. */
 export const PUBLIC_NAV = [
-  { href: '/articles', label: 'Articles' },
-  { href: '/topics', label: 'Topics' },
-  { href: '/projects', label: 'Projects' },
-  { href: '/about', label: 'About' },
-  { href: '/cv', label: 'CV' },
-  { href: '/contact', label: 'Contact' },
-] as const;
+  { href: '/articles', key: 'articles' },
+  { href: '/topics', key: 'topics' },
+  { href: '/projects', key: 'projects' },
+  { href: '/about', key: 'about' },
+  { href: '/cv', key: 'cv' },
+  { href: '/contact', key: 'contact' },
+] as const satisfies ReadonlyArray<{ href: string; key: keyof Dictionary['nav'] }>;
 
 export const ADMIN_NAV = [
   { href: '/admin', label: 'Dashboard', icon: 'layout-dashboard' },

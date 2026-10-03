@@ -3,6 +3,7 @@ import 'server-only';
 import { asRichTextDoc, type RichTextDoc } from '@/lib/content/rich-text';
 import type { Db } from '@/lib/db/client';
 import { sql, type SqlFragment } from '@/lib/db/sql';
+import type { TextVersion } from '@/features/admin/components/translation-switcher';
 import type { ArticleReference, Paginated } from '@/types/content';
 import type { ArticleRow, ContentStatus, FileStatus, FileVisibility } from '@/types/database.types';
 
@@ -19,6 +20,8 @@ export interface AdminArticleRow {
   status: ContentStatus;
   featured: boolean;
   language: string;
+  /** Languages of every version in this text's group, e.g. "en,pt". */
+  group_languages: string;
   updated_at: string;
   published_at: string | null;
   deleted_at: string | null;
@@ -42,8 +45,13 @@ export async function listAdminArticles(
   try {
     return await db.transaction(async (tx) => {
       const items = await tx.many<AdminArticleRow>(sql`
-        select id, title, slug, status, featured, language, updated_at, published_at, deleted_at
-        from public.articles
+        select a.id, a.title, a.slug, a.status, a.featured, a.language, a.updated_at, a.published_at, a.deleted_at,
+               (select string_agg(o.language, ',' order by o.language)
+                from public.articles o
+                where o.deleted_at is null
+                  and (o.id = coalesce(a.translation_of_article_id, a.id)
+                    or o.translation_of_article_id = coalesce(a.translation_of_article_id, a.id))) as group_languages
+        from public.articles a
         where ${where}
         order by updated_at desc
         limit ${ADMIN_PAGE_SIZE} offset ${(options.page - 1) * ADMIN_PAGE_SIZE}`);
@@ -95,6 +103,8 @@ export interface EditorArticle {
   tags: string[];
   references: ArticleReference[];
   files: EditorFile[];
+  /** Other language versions of this article (same group), not in the trash. */
+  versions: TextVersion[];
 }
 
 export async function getArticleForEditor(db: Db, id: string): Promise<EditorArticle | null> {
@@ -120,6 +130,11 @@ export async function getArticleForEditor(db: Db, id: string): Promise<EditorArt
       const files = await tx.many<EditorFile>(sql`
         select id, original_filename, label, size_bytes, visibility, status, created_at
         from public.article_files where article_id = ${id} and kind = 'article_attachment' order by created_at`);
+      const root = article.translation_of_article_id ?? article.id;
+      const versions = await tx.many<TextVersion>(sql`
+        select id, language, title, status from public.articles
+        where deleted_at is null and id <> ${id} and (id = ${root} or translation_of_article_id = ${root})
+        order by language`);
 
       return {
         id: article.id,
@@ -149,6 +164,7 @@ export async function getArticleForEditor(db: Db, id: string): Promise<EditorArt
         tags: tags.map((row) => row.name),
         references,
         files,
+        versions,
       };
     });
   } catch (error) {
@@ -159,6 +175,7 @@ export async function getArticleForEditor(db: Db, id: string): Promise<EditorArt
 export interface EditorOptions {
   topics: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
+  /** Originals (not translations themselves) that a text can be linked to as their translation. */
   articles: Array<{ id: string; title: string; language: string }>;
   tags: string[];
 }
@@ -173,7 +190,8 @@ export async function getEditorOptions(db: Db, excludeArticleId?: string): Promi
         sql`select id, name from public.categories order by sort_order, name`,
       );
       const articles = await tx.many<{ id: string; title: string; language: string }>(
-        sql`select id, title, language from public.articles where deleted_at is null order by title limit 500`,
+        sql`select id, title, language from public.articles
+            where deleted_at is null and translation_of_article_id is null order by title limit 500`,
       );
       const tags = await tx.many<{ name: string }>(sql`select name from public.tags order by name limit 500`);
       return {

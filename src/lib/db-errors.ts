@@ -21,6 +21,14 @@ export function failFromDbError(operation: string, error: unknown) {
       return fail('You do not have permission to do this.', { code: 'FORBIDDEN' });
     case 'P0002':
       return fail('This item no longer exists.', { code: 'NOT_FOUND' });
+    case 'FOT01':
+      // Raised by the translation-link checks (0016); the message is written for people.
+      return fail(
+        error instanceof Error && error.message
+          ? error.message
+          : 'That language version is not valid. Each text has one version per language, linked to the original.',
+        { code: 'CONFLICT' },
+      );
     default:
       return fail('The database could not complete the request. Try again in a moment.');
   }

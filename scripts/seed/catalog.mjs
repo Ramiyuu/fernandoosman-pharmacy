@@ -5,46 +5,58 @@ export const topics = [
   {
     slug: 'clinical-research',
     name: 'Clinical Research',
+    name_pt: 'Pesquisa Clínica',
     description: 'Trial design, phases, endpoints and how evidence about medicines is generated in people.',
+    description_pt: 'Desenho de ensaios, fases, desfechos e como a evidência sobre medicamentos é gerada em pessoas.',
     icon: 'clipboard-list',
   },
   {
     slug: 'biostatistics',
     name: 'Biostatistics',
+    name_pt: 'Bioestatística',
     description: 'Confidence intervals, hazard ratios, survival analysis and the numbers behind clinical results.',
+    description_pt: 'Intervalos de confiança, hazard ratios, análise de sobrevida e os números por trás dos resultados clínicos.',
     icon: 'sigma',
   },
   {
     slug: 'pharmacology',
     name: 'Pharmacology',
+    name_pt: 'Farmacologia',
     description: 'Mechanisms of action, pharmacokinetics and how drugs behave in the body.',
+    description_pt: 'Mecanismos de ação, farmacocinética e como os fármacos se comportam no organismo.',
     icon: 'pill',
   },
   {
     slug: 'evidence-based-medicine',
     name: 'Evidence-Based Medicine',
+    name_pt: 'Medicina Baseada em Evidências',
     description: 'Critical appraisal of studies and how research findings become clinical practice.',
+    description_pt: 'Leitura crítica de estudos e como os resultados de pesquisa chegam à prática clínica.',
     icon: 'scale',
   },
   {
     slug: 'medical-affairs',
     name: 'Medical Affairs',
+    name_pt: 'Medical Affairs',
     description: 'Scientific communication between industry, healthcare professionals and patients.',
+    description_pt: 'Comunicação científica entre a indústria, os profissionais de saúde e os pacientes.',
     icon: 'message-square-text',
   },
   {
     slug: 'data-analysis',
     name: 'Data Analysis',
+    name_pt: 'Análise de Dados',
     description: 'Health data projects with R, Python and Power BI — from cleaning to visualisation.',
+    description_pt: 'Projetos com dados de saúde em R, Python e Power BI, da limpeza à visualização.',
     icon: 'chart-line',
   },
 ];
 
 export const categories = [
-  { slug: 'concept-explainer', name: 'Concept Explainer', description: 'One statistical or clinical concept, explained with examples.' },
-  { slug: 'paper-review', name: 'Paper Review', description: 'Structured appraisal of a published clinical study.' },
-  { slug: 'research-note', name: 'Research Note', description: 'Short notes from ongoing study and reading.' },
-  { slug: 'guide', name: 'Guide', description: 'Practical, step-by-step methods.' },
+  { slug: 'concept-explainer', name: 'Concept Explainer', name_pt: 'Explicação de conceito', description: 'One statistical or clinical concept, explained with examples.' },
+  { slug: 'paper-review', name: 'Paper Review', name_pt: 'Revisão de estudo', description: 'Structured appraisal of a published clinical study.' },
+  { slug: 'research-note', name: 'Research Note', name_pt: 'Nota de pesquisa', description: 'Short notes from ongoing study and reading.' },
+  { slug: 'guide', name: 'Guide', name_pt: 'Guia', description: 'Practical, step-by-step methods.' },
 ];
 
 // Sample profile — replace every value from /admin/profile.

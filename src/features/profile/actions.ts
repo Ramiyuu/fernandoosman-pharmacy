@@ -53,6 +53,7 @@ export async function saveSiteProfileAction(input: SiteProfileInput): Promise<Ac
         experience = ${json(data.experience)}::jsonb,
         skills = ${json(data.skills)}::jsonb,
         certifications = ${json(data.certifications)}::jsonb,
+        translations = ${json(data.translations)}::jsonb,
         updated_by = ${userId}
       where id = 1`);
   } catch (error) {

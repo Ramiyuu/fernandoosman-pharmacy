@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         // Not a security measure (those routes are protected server-side); it
         // just keeps private and utility URLs out of search results.
-        disallow: ['/admin', '/preview', '/api', '/search'],
+        disallow: ['/admin', '/preview', '/api', '/en/search', '/pt/busca'],
       },
     ],
     sitemap: absoluteUrl('/sitemap.xml'),

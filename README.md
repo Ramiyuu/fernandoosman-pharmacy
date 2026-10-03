@@ -27,10 +27,12 @@ Entre em `/admin/login` e configure o TOTP obrigatório. Não existe cadastro p�
 
 ## Conteúdo e painel
 
-- Home redesenhada com identidade FO, composição científica leve em CSS, perfil administrável e estatísticas calculadas de conteúdo publicado.
-- Artigos em `/articles`: editor com tabelas, fórmulas, imagens, vídeos, citações, seções de revisão de estudo, referências estruturadas, DOI, PMID, SEO e imagem de compartilhamento. Rascunhos privados, autosave, publicação, despublicação e lixeira preservados.
+- Site bilíngue: `/en/...` e `/pt/...` (com segmentos em português, ex.: `/pt/artigos`). `/` e links antigos sem prefixo vão para o idioma do navegador ou o último escolhido no seletor EN | PT. Interface traduzida em `src/i18n/dictionaries/`; o painel admin segue em inglês.
+- Home com identidade FO e a abertura "da molécula à evidência": nuvem de partículas em WebGL (molécula → curvas de Kaplan-Meier → rede de tópicos) no desktop e figuras SVG estáticas no celular e com reduced motion. Perfil administrável e estatísticas calculadas de conteúdo publicado.
+- Versões de idioma: cada artigo/projeto pode ter uma versão EN e uma PT, ligadas. No editor, "Create Portuguese version" copia texto, referências, tópicos, tags e capa para um rascunho a traduzir (PDFs não são copiados). Cada versão tem slug e publicação próprios; sem tradução, o visitante vê a versão existente com selo de idioma. Tópicos, categorias, perfil e configurações têm campos em português que voltam ao inglês quando vazios.
+- Artigos em `/en/articles` e `/pt/artigos`: editor com tabelas, fórmulas, imagens, vídeos, citações, seções de revisão de estudo, referências estruturadas, DOI, PMID, SEO e imagem de compartilhamento. Rascunhos privados, autosave, publicação, despublicação e lixeira preservados.
 - Projetos com conteúdo, imagens, links, tecnologia e PDFs. Busca full text inclui artigos, conteúdo, taxonomias, referências e projetos.
-- Perfil e CV em `/admin/profile`: identidade, foto, universidade, semestre, previsão de formatura, estudos atuais, interesses, idiomas, links, formação, experiência, habilidades e certificados. Formação/experiência têm ordem e visibilidade; certificados têm credenciais, imagem e PDF. Páginas públicas `/about`, `/cv`, `/experience` e `/certificates`.
+- Perfil e CV em `/admin/profile`: identidade, foto, universidade, semestre, previsão de formatura, estudos atuais, interesses, idiomas, links, formação, experiência, habilidades e certificados. Formação/experiência têm ordem e visibilidade; certificados têm credenciais, imagem e PDF. Páginas públicas `/about`, `/cv`, `/experience` e `/certificates` (em português: `/pt/sobre`, `/pt/cv`, `/pt/experiencia`, `/pt/certificados`).
 - Biblioteca em `/admin/files` (alias `/admin/media`): imagens, PDFs e vídeos. Uploads de vídeo são feitos no editor de um artigo/projeto já salvo. Aliases `/admin/education`, `/admin/experiences`, `/admin/certificates` mantêm o CRUD integrado do perfil.
 - `/admin/analytics` e `/admin/downloads`: views/downloads por período, arquivo, artigo, projeto e tópicos. `/admin/audit`: últimas 200 ações administrativas.
 - Contato, mensagens, taxonomias, configurações e segurança existentes preservados.
@@ -48,7 +50,7 @@ Analytics registra somente IDs de conteúdo, tipo, horário e hash diário de um
 
 ## Banco e deploy
 
-Migrations `0001`–`0009` preservadas; `0010`–`0015` adicionam recursos, perfil, analytics, vídeos, metadata científica e busca em referências, sem remoção de dados. O migrador usa transações/checksum e recusa a aplicação conectada como proprietário. Seed é opcional, somente em banco de desenvolvimento vazio; bloqueado em produção.
+Migrations `0001`–`0009` preservadas; `0010`–`0016` adicionam recursos, perfil, analytics, vídeos, metadata científica, busca em referências e conteúdo bilíngue (versões ligadas, campos `*_pt`, listagens por idioma), sem remoção de dados. O migrador usa transações/checksum e recusa a aplicação conectada como proprietário. Seed é opcional, somente em banco de desenvolvimento vazio; bloqueado em produção.
 
 O Dockerfile usa Node 24, build isolado e runtime não-root. `railway.json` define `npm run db:migrate` no pre-deploy, `npm start` e `/api/health`. Sem armazenamento permanente no filesystem. O domínio vem de `NEXT_PUBLIC_SITE_URL`; trocar o domínio exige atualizar env/CORS e rebuild, sem alterar o branding.
 

@@ -1,6 +1,14 @@
 'use client';
 import { useState } from 'react';
-export function VideoPlayer({ src, title }: { src: string; title: string }) {
+export function VideoPlayer({
+  src,
+  title,
+  labels,
+}: {
+  src: string;
+  title: string;
+  labels: { play: string; external: string };
+}) {
   const [active, setActive] = useState(false);
   if (src.startsWith('/api/videos/'))
     return (
@@ -27,8 +35,8 @@ export function VideoPlayer({ src, title }: { src: string; title: string }) {
           className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-lg bg-navy-900 p-6 text-white"
           onClick={() => setActive(true)}
         >
-          <span className="text-lg font-semibold">Play: {title}</span>
-          <span className="text-xs text-navy-200">Loads an external YouTube player</span>
+          <span className="text-lg font-semibold">{labels.play}</span>
+          <span className="text-xs text-navy-200">{labels.external}</span>
         </button>
       )}
       <figcaption className="mt-2 text-sm text-muted">{title}</figcaption>

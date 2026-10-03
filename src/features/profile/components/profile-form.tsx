@@ -37,6 +37,18 @@ type ProfileFormValues = Omit<
   professional_email: string;
 };
 
+/** Optional Portuguese versions of an entry's text; empty fields fall back to English on /pt pages. */
+function PortugueseFields({ children }: { children: ReactNode }) {
+  return (
+    <details className="rounded-md border border-dashed border-rule-strong bg-mist/60 p-3 sm:col-span-2" lang="pt-BR">
+      <summary className="cursor-pointer text-sm font-medium text-navy-900">
+        Portuguese version <span className="font-normal text-muted">(optional: empty fields use the English text)</span>
+      </summary>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">{children}</div>
+    </details>
+  );
+}
+
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-rule bg-white">
@@ -131,6 +143,73 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
           </Field>
         </Section>
 
+        <Section
+          title="Portuguese version"
+          description="Shown on the Portuguese site (/pt). Leave a field empty to show the English text there."
+        >
+          <div className="grid gap-4 sm:grid-cols-2" lang="pt-BR">
+            <Field id="profile-pt-headline" label="Headline (PT)">
+              <Input id="profile-pt-headline" placeholder="Estudante de Farmácia" {...register('translations.pt.headline')} />
+            </Field>
+            <Field id="profile-pt-course" label="Course (PT)">
+              <Input id="profile-pt-course" placeholder="Farmácia" {...register('translations.pt.course')} />
+            </Field>
+            <Field id="profile-pt-university" label="University (PT)">
+              <Input id="profile-pt-university" {...register('translations.pt.university')} />
+            </Field>
+            <Field id="profile-pt-location" label="General location (PT)">
+              <Input id="profile-pt-location" placeholder="Brasil" {...register('translations.pt.location')} />
+            </Field>
+            <Field id="profile-pt-graduation" label="Expected graduation (PT)">
+              <Input id="profile-pt-graduation" {...register('translations.pt.expected_graduation')} />
+            </Field>
+          </div>
+          <Field id="profile-pt-focus" label="Focus areas (PT)" hint="Ex.: Pesquisa Clínica, Medical Affairs, Análise de Dados.">
+            <Controller
+              control={control}
+              name="translations.pt.focus_areas"
+              render={({ field }) => (
+                <TagInput id="profile-pt-focus" value={field.value ?? []} onChange={field.onChange} max={6} maxLength={60} />
+              )}
+            />
+          </Field>
+          <Field id="profile-pt-short-bio" label="Short description (PT)">
+            <Textarea id="profile-pt-short-bio" lang="pt-BR" rows={2} maxLength={400} {...register('translations.pt.short_bio')} />
+          </Field>
+          <Field id="profile-pt-bio" label="Biography (PT)" hint="Separe os parágrafos com uma linha em branco.">
+            <Textarea id="profile-pt-bio" lang="pt-BR" rows={8} maxLength={6000} {...register('translations.pt.bio')} />
+          </Field>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Field id="profile-pt-studies" label="Current studies (PT)">
+              <Controller
+                control={control}
+                name="translations.pt.current_studies"
+                render={({ field }) => (
+                  <TagInput id="profile-pt-studies" value={field.value ?? []} onChange={field.onChange} max={20} maxLength={60} />
+                )}
+              />
+            </Field>
+            <Field id="profile-pt-scientific" label="Scientific interests (PT)">
+              <Controller
+                control={control}
+                name="translations.pt.scientific_interests"
+                render={({ field }) => (
+                  <TagInput id="profile-pt-scientific" value={field.value ?? []} onChange={field.onChange} max={20} maxLength={60} />
+                )}
+              />
+            </Field>
+            <Field id="profile-pt-interests" label="Areas of interest (PT)">
+              <Controller
+                control={control}
+                name="translations.pt.interests"
+                render={({ field }) => (
+                  <TagInput id="profile-pt-interests" value={field.value ?? []} onChange={field.onChange} max={20} maxLength={60} />
+                )}
+              />
+            </Field>
+          </div>
+        </Section>
+
         <Section title="Academic focus">
           <Field id="graduation" label="Expected graduation">
             <Input id="graduation" {...register('expected_graduation')} />
@@ -215,7 +294,7 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-navy-900">Languages</legend>
             {languages.fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+              <div key={field.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
                 <Input
                   aria-label={`Language ${index + 1}`}
                   placeholder="Language"
@@ -225,6 +304,18 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
                   aria-label={`Level for language ${index + 1}`}
                   placeholder="Level (e.g. Advanced, C1)"
                   {...register(`languages.${index}.level`)}
+                />
+                <Input
+                  aria-label={`Language ${index + 1} in Portuguese`}
+                  placeholder="Idioma (PT)"
+                  lang="pt-BR"
+                  {...register(`languages.${index}.name_pt`)}
+                />
+                <Input
+                  aria-label={`Level for language ${index + 1} in Portuguese`}
+                  placeholder="Nível (PT)"
+                  lang="pt-BR"
+                  {...register(`languages.${index}.level_pt`)}
                 />
                 <Button
                   variant="danger-ghost"
@@ -296,6 +387,25 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
                 {...register(`education.${index}.field`)}
               />
               <Input aria-label="Activities" placeholder="Activities" {...register(`education.${index}.activities`)} />
+              <PortugueseFields>
+                <Input aria-label="Degree (PT)" placeholder="Curso / grau" {...register(`education.${index}.degree_pt`)} />
+                <Input aria-label="Field of study (PT)" placeholder="Área" {...register(`education.${index}.field_pt`)} />
+                <Input aria-label="Start (PT)" placeholder="Início" {...register(`education.${index}.start_pt`)} />
+                <Input aria-label="End (PT)" placeholder="Fim (ex.: Previsão 2028)" {...register(`education.${index}.end_pt`)} />
+                <Textarea
+                  aria-label="Description (PT)"
+                  placeholder="Descrição"
+                  rows={2}
+                  className="sm:col-span-2"
+                  {...register(`education.${index}.description_pt`)}
+                />
+                <Input
+                  aria-label="Activities (PT)"
+                  placeholder="Atividades"
+                  className="sm:col-span-2"
+                  {...register(`education.${index}.activities_pt`)}
+                />
+              </PortugueseFields>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -368,6 +478,21 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
               />
               <Input aria-label="Location" placeholder="Location" {...register(`experience.${index}.location`)} />
               <Input aria-label="Skills" placeholder="Skills" {...register(`experience.${index}.skills`)} />
+              <PortugueseFields>
+                <Input aria-label="Role (PT)" placeholder="Função" {...register(`experience.${index}.role_pt`)} />
+                <Input aria-label="Employment type (PT)" placeholder="Tipo de vínculo" {...register(`experience.${index}.employment_type_pt`)} />
+                <Input aria-label="Start (PT)" placeholder="Início" {...register(`experience.${index}.start_pt`)} />
+                <Input aria-label="End (PT)" placeholder="Fim" {...register(`experience.${index}.end_pt`)} />
+                <Input aria-label="Location (PT)" placeholder="Local" {...register(`experience.${index}.location_pt`)} />
+                <Input aria-label="Skills (PT)" placeholder="Habilidades" {...register(`experience.${index}.skills_pt`)} />
+                <Textarea
+                  aria-label="Description (PT)"
+                  placeholder="Descrição"
+                  rows={2}
+                  className="sm:col-span-2"
+                  {...register(`experience.${index}.description_pt`)}
+                />
+              </PortugueseFields>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -441,6 +566,25 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
               >
                 <Trash2 aria-hidden="true" />
               </Button>
+              <div className="sm:col-span-3">
+                <PortugueseFields>
+                  <Input aria-label="Skill group (PT)" placeholder="Grupo (PT)" {...register(`skills.${index}.group_pt`)} />
+                  <Controller
+                    control={control}
+                    name={`skills.${index}.items_pt`}
+                    render={({ field: itemsField }) => (
+                      <TagInput
+                        id={`skills-pt-${index}`}
+                        value={itemsField.value ?? []}
+                        onChange={itemsField.onChange}
+                        max={20}
+                        maxLength={60}
+                        placeholder="Adicionar habilidade"
+                      />
+                    )}
+                  />
+                </PortugueseFields>
+              </div>
             </div>
           ))}
           <Button variant="secondary" size="sm" onClick={() => skills.append({ group: '', items: [] })}>
@@ -483,6 +627,16 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
                   placeholder="Certificate skills"
                   {...register(`certifications.${index}.skills`)}
                 />
+                <PortugueseFields>
+                  <Input aria-label="Certification (PT)" placeholder="Certificado (PT)" {...register(`certifications.${index}.name_pt`)} />
+                  <Input aria-label="Certificate skills (PT)" placeholder="Habilidades (PT)" {...register(`certifications.${index}.skills_pt`)} />
+                  <Input
+                    aria-label="Certificate description (PT)"
+                    placeholder="Descrição (PT)"
+                    className="sm:col-span-2"
+                    {...register(`certifications.${index}.description_pt`)}
+                  />
+                </PortugueseFields>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"

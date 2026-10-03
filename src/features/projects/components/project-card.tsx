@@ -2,33 +2,48 @@ import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { CoverImage } from '@/features/articles/components/cover-image';
+import { HTML_LANG, type Locale } from '@/i18n/config';
+import { dictionaryFor } from '@/i18n/dictionaries';
+import { en } from '@/i18n/dictionaries/en';
+import { getI18n } from '@/i18n/server';
 import type { ProjectCard as ProjectCardData } from '@/types/content';
 import type { ProjectProgress } from '@/types/database.types';
 import { cn } from '@/utils/cn';
 import { formatMonthYear } from '@/utils/format';
 
-export const PROGRESS_LABELS: Record<ProjectProgress, string> = {
-  planned: 'Planned',
-  in_progress: 'In progress',
-  completed: 'Completed',
-};
+/** English labels, for the admin panel. */
+export const PROGRESS_LABELS: Record<ProjectProgress, string> = en.projects.progress;
 
-export function ProgressBadge({ progress }: { progress: ProjectProgress }) {
+export async function ProgressBadge({ progress }: { progress: ProjectProgress }) {
+  const { t } = await getI18n();
   const tone = progress === 'completed' ? 'success' : progress === 'in_progress' ? 'teal' : 'neutral';
-  return <Badge tone={tone}>{PROGRESS_LABELS[progress]}</Badge>;
+  return <Badge tone={tone}>{t.projects.progress[progress]}</Badge>;
 }
 
-export function projectPeriod(project: Pick<ProjectCardData, 'started_on' | 'completed_on' | 'progress'>): string {
-  const start = formatMonthYear(project.started_on);
-  const end = project.completed_on ? formatMonthYear(project.completed_on) : project.progress === 'in_progress' ? 'present' : '';
-  if (start && end) return `${start} to ${end}`;
+export function projectPeriod(
+  project: Pick<ProjectCardData, 'started_on' | 'completed_on' | 'progress'>,
+  locale: Locale,
+): string {
+  const copy = dictionaryFor(locale).projects;
+  const start = formatMonthYear(project.started_on, locale);
+  const end = project.completed_on
+    ? formatMonthYear(project.completed_on, locale)
+    : project.progress === 'in_progress'
+      ? copy.present
+      : '';
+  if (start && end) return copy.period(start, end);
   return start || end;
 }
 
-export function ProjectCard({ project, className }: { project: ProjectCardData; className?: string }) {
-  const period = projectPeriod(project);
+export async function ProjectCard({ project, className }: { project: ProjectCardData; className?: string }) {
+  const { locale, href } = await getI18n();
+  const period = projectPeriod(project, locale);
+  const foreign = project.language !== locale;
   return (
-    <article className={cn('group relative flex flex-col rounded-xl border border-rule bg-white p-4 transition-colors hover:border-rule-strong', className)}>
+    <article
+      data-spotlight
+      className={cn('project-card group relative flex flex-col rounded-xl border border-rule bg-white p-4 transition-colors hover:border-rule-strong', className)}
+    >
       <CoverImage
         bucket="project-images"
         path={project.cover_image_path}
@@ -41,12 +56,17 @@ export function ProjectCard({ project, className }: { project: ProjectCardData; 
         <ProgressBadge progress={project.progress} />
         {period ? <span className="text-xs text-muted">{period}</span> : null}
       </div>
-      <h3 className="mt-3 text-lg leading-snug font-semibold text-ink">
-        <Link href={`/projects/${project.slug}`} className="after:absolute after:inset-0 group-hover:underline group-hover:decoration-teal-500 group-hover:underline-offset-4">
+      <h3 className="mt-3 text-lg leading-snug font-semibold text-ink" lang={foreign ? HTML_LANG[project.language] : undefined}>
+        <Link href={href(`/projects/${project.slug}`)} className="after:absolute after:inset-0 group-hover:underline group-hover:decoration-teal-500 group-hover:underline-offset-4">
           {project.title}
         </Link>
       </h3>
-      <p className="mt-2 line-clamp-3 text-[0.9375rem] leading-relaxed text-muted">{project.summary}</p>
+      <p
+        className="mt-2 line-clamp-3 text-[0.9375rem] leading-relaxed text-muted"
+        lang={foreign ? HTML_LANG[project.language] : undefined}
+      >
+        {project.summary}
+      </p>
       {project.technologies.length > 0 ? (
         <ul className="mt-auto flex flex-wrap gap-1.5 pt-4" aria-label="Technologies">
           {project.technologies.map((technology) => (

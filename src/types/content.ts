@@ -9,6 +9,8 @@ export const LANGUAGES: readonly Language[] = ['en', 'pt'];
 export interface TaxonomyRef {
   id: string;
   name: string;
+  /** Portuguese name; empty means "use name". Topics and categories only. */
+  name_pt?: string;
   slug: string;
 }
 
@@ -25,6 +27,8 @@ export interface ArticleCard {
   cover_image_path: string | null;
   cover_image_alt: string;
   language: Language;
+  /** Id of the first version; every language version of a text shares it. */
+  translation_group: string;
   reading_time: number;
   status: ContentStatus;
   featured: boolean;
@@ -81,6 +85,7 @@ export interface Paginated<T> {
 
 export interface FacetOption {
   name: string;
+  name_pt?: string;
   slug: string;
   count: number;
 }
@@ -104,8 +109,10 @@ export interface ArticleFilters {
 export interface TopicWithCount {
   id: string;
   name: string;
+  name_pt: string;
   slug: string;
   description: string;
+  description_pt: string;
   icon: string;
   sort_order: number;
   article_count: number;
@@ -138,6 +145,8 @@ export interface ProjectCard {
   title: string;
   slug: string;
   summary: string;
+  language: Language;
+  translation_group: string;
   status: ContentStatus;
   progress: ProjectProgress;
   cover_image_path: string | null;
@@ -157,6 +166,7 @@ export interface ProjectDetail extends ProjectCard {
   content: RichTextDoc;
   gallery: ProjectImage[];
   links: ProjectLink[];
+  translation: { slug: string; title: string; language: Language } | null;
 }
 
 export interface SearchHit extends ArticleCard {
@@ -173,6 +183,8 @@ export interface SearchResults {
 export interface LanguageSkill {
   name: string;
   level: string;
+  name_pt?: string;
+  level_pt?: string;
 }
 
 export interface EducationEntry {
@@ -187,6 +199,12 @@ export interface EducationEntry {
   start: string;
   end: string;
   description: string;
+  degree_pt?: string;
+  field_pt?: string;
+  activities_pt?: string;
+  description_pt?: string;
+  start_pt?: string;
+  end_pt?: string;
 }
 
 export interface ExperienceEntry {
@@ -202,11 +220,20 @@ export interface ExperienceEntry {
   start: string;
   end: string;
   description: string;
+  role_pt?: string;
+  employment_type_pt?: string;
+  location_pt?: string;
+  skills_pt?: string;
+  description_pt?: string;
+  start_pt?: string;
+  end_pt?: string;
 }
 
 export interface SkillGroup {
   group: string;
   items: string[];
+  group_pt?: string;
+  items_pt?: string[];
 }
 
 export interface CertificationEntry {
@@ -222,6 +249,24 @@ export interface CertificationEntry {
   issuer: string;
   year: string;
   url: string;
+  name_pt?: string;
+  description_pt?: string;
+  skills_pt?: string;
+}
+
+/** Portuguese versions of the profile's top-level text (site_profile.translations.pt). */
+export interface ProfileTranslation {
+  headline?: string;
+  focus_areas?: string[];
+  short_bio?: string;
+  bio?: string;
+  course?: string;
+  university?: string;
+  location?: string;
+  expected_graduation?: string;
+  current_studies?: string[];
+  scientific_interests?: string[];
+  interests?: string[];
 }
 
 export interface SiteProfile {
@@ -252,6 +297,7 @@ export interface SiteProfile {
   experience: ExperienceEntry[];
   skills: SkillGroup[];
   certifications: CertificationEntry[];
+  translations: { pt?: ProfileTranslation };
   updated_at: string;
 }
 
@@ -261,14 +307,25 @@ export interface SiteSettings {
     tagline: string;
     description: string;
     keywords: string[];
+    /** Portuguese versions; empty means "use the English text". */
+    tagline_pt?: string;
+    description_pt?: string;
   };
   contact: {
     intro: string;
+    intro_pt?: string;
   };
 }
 
+export interface SitemapEntry {
+  slug: string;
+  updated_at: string;
+  language: Language;
+  group: string;
+}
+
 export interface SitemapEntries {
-  articles: Array<{ slug: string; updated_at: string }>;
-  projects: Array<{ slug: string; updated_at: string }>;
+  articles: SitemapEntry[];
+  projects: SitemapEntry[];
   topics: Array<{ slug: string; updated_at: string }>;
 }

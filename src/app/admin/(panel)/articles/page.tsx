@@ -138,7 +138,17 @@ export default async function AdminArticlesPage({ searchParams }: PageProps<'/ad
                   <td className={tableClasses.td}>
                     {article.deleted_at ? <Badge tone="danger">In trash</Badge> : <StatusBadge status={article.status} />}
                   </td>
-                  <td className={cn(tableClasses.td, 'uppercase text-muted')}>{article.language}</td>
+                  <td className={cn(tableClasses.td, 'whitespace-nowrap text-xs')}>
+                    <span className="font-semibold text-ink uppercase">{article.language}</span>
+                    {(article.group_languages ?? '')
+                      .split(',')
+                      .filter((code) => code && code !== article.language)
+                      .map((code) => (
+                        <span key={code} className="ml-1.5 text-muted uppercase" title="Another language version exists">
+                          + {code}
+                        </span>
+                      ))}
+                  </td>
                   <td className={cn(tableClasses.td, 'whitespace-nowrap text-muted')}>
                     {formatDate(article.deleted_at ?? article.updated_at)}
                   </td>

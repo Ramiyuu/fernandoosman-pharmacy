@@ -33,19 +33,23 @@ function Counter({ value, max }: { value: string; max: number }) {
 interface ArticleSettingsPanelProps {
   form: UseFormReturn<ArticleFormValues>;
   options: EditorOptions;
+  /** This article is the original of other versions, so it cannot become a translation itself. */
+  hasTranslations: boolean;
   onSlugEdited: (value: string) => void;
 }
 
-export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSettingsPanelProps) {
+export function ArticleSettingsPanel({ form, options, hasTranslations, onSlugEdited }: ArticleSettingsPanelProps) {
   const {
     register,
     control,
     formState: { errors },
   } = form;
-  const [seoTitle, seoDescription, title, excerpt, slug, coverAlt] = useWatch({
+  const [seoTitle, seoDescription, title, excerpt, slug, coverAlt, language] = useWatch({
     control,
-    name: ['seo_title', 'seo_description', 'title', 'excerpt', 'slug', 'cover_image_alt'],
+    name: ['seo_title', 'seo_description', 'title', 'excerpt', 'slug', 'cover_image_alt', 'language'],
   });
+  const originals = options.articles.filter((article) => article.language !== language);
+  const publicPath = `/${language}/${language === 'pt' ? 'artigos' : 'articles'}/${slug || '…'}`;
 
   const slugField = register('slug');
 
@@ -56,7 +60,7 @@ export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSet
           id="article-slug"
           label="URL slug"
           error={errors.slug?.message}
-          hint={`/articles/${slug || 'generated-from-title'}`}
+          hint={publicPath}
         >
           <Input
             id="article-slug"
@@ -121,16 +125,20 @@ export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSet
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field id="article-language" label="Language">
+          <Field id="article-language" label="Language" hint="The language this version is written in.">
             <NativeSelect id="article-language" {...register('language')}>
               <option value="en">English</option>
               <option value="pt">Português</option>
             </NativeSelect>
           </Field>
-          <Field id="article-translation" label="Translation of">
-            <NativeSelect id="article-translation" {...register('translation_of_article_id')}>
+          <Field
+            id="article-translation"
+            label="Translation of"
+            hint={hasTranslations ? 'This is the original of another version.' : 'Links two texts written separately.'}
+          >
+            <NativeSelect id="article-translation" disabled={hasTranslations} {...register('translation_of_article_id')}>
               <option value="">None</option>
-              {options.articles.map((article) => (
+              {originals.map((article) => (
                 <option key={article.id} value={article.id}>
                   [{article.language.toUpperCase()}] {article.title || 'Untitled'}
                 </option>
@@ -251,7 +259,7 @@ export function ArticleSettingsPanel({ form, options, onSlugEdited }: ArticleSet
         </Field>
         <div className="rounded-md bg-mist p-3" aria-label="Search result preview">
           <p className="truncate text-sm text-azure-700">{seoTitle || title || 'Article title'}</p>
-          <p className="truncate text-xs text-success-700">/articles/{slug}</p>
+          <p className="truncate text-xs text-success-700">{publicPath}</p>
           <p className="mt-1 line-clamp-2 text-xs text-muted">
             {seoDescription || excerpt || 'Summary shown in search results.'}
           </p>

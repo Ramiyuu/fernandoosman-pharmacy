@@ -3,6 +3,7 @@ import 'server-only';
 import { asRichTextDoc, type RichTextDoc } from '@/lib/content/rich-text';
 import type { Db } from '@/lib/db/client';
 import { sql } from '@/lib/db/sql';
+import type { TextVersion } from '@/features/admin/components/translation-switcher';
 import type { ProjectImage, ProjectLink } from '@/types/content';
 import type { ContentStatus, ProjectProgress, ProjectRow } from '@/types/database.types';
 
@@ -16,14 +17,21 @@ export interface AdminProjectRow {
   progress: ProjectProgress;
   featured: boolean;
   sort_order: number;
+  language: 'en' | 'pt';
+  /** Languages of every version in this project's group, e.g. "en,pt". */
+  group_languages: string;
   updated_at: string;
 }
 
 export async function listAdminProjects(db: Db): Promise<AdminProjectRow[]> {
   try {
     return await db.many<AdminProjectRow>(sql`
-      select id, title, slug, status, progress, featured, sort_order, updated_at
-      from public.projects order by sort_order, updated_at desc`);
+      select p.id, p.title, p.slug, p.status, p.progress, p.featured, p.sort_order, p.language, p.updated_at,
+             (select string_agg(o.language, ',' order by o.language)
+              from public.projects o
+              where o.id = coalesce(p.translation_of_project_id, p.id)
+                 or o.translation_of_project_id = coalesce(p.translation_of_project_id, p.id)) as group_languages
+      from public.projects p order by p.sort_order, p.updated_at desc`);
   } catch (error) {
     failQuery('admin.projects.list', error);
   }
@@ -49,6 +57,10 @@ export interface EditorProject {
   completed_on: string | null;
   featured: boolean;
   sort_order: number;
+  language: 'en' | 'pt';
+  translation_of_project_id: string | null;
+  /** Other language versions of this project. */
+  versions: TextVersion[];
 }
 
 export async function getProjectForEditor(db: Db, id: string): Promise<EditorProject | null> {
@@ -59,6 +71,11 @@ export async function getProjectForEditor(db: Db, id: string): Promise<EditorPro
       const tags = await tx.many<{ name: string }>(sql`
         select t.name from public.project_tags pt join public.tags t on t.id = pt.tag_id
         where pt.project_id = ${id} order by t.name`);
+      const root = project.translation_of_project_id ?? project.id;
+      const versions = await tx.many<TextVersion>(sql`
+        select id, language, title, status from public.projects
+        where id <> ${id} and (id = ${root} or translation_of_project_id = ${root})
+        order by language`);
 
       return {
         id: project.id,
@@ -80,6 +97,9 @@ export async function getProjectForEditor(db: Db, id: string): Promise<EditorPro
         completed_on: project.completed_on,
         featured: project.featured,
         sort_order: project.sort_order,
+        language: project.language === 'pt' ? 'pt' : 'en',
+        translation_of_project_id: project.translation_of_project_id,
+        versions,
       };
     });
   } catch (error) {

@@ -45,6 +45,20 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
       <Field id="settings-contact" label="Contact page introduction">
         <Textarea id="settings-contact" rows={3} maxLength={600} {...register('contact.intro')} />
       </Field>
+
+      <h2 className="border-t border-rule pt-4 text-base font-semibold text-ink">Portuguese version</h2>
+      <p className="-mt-2 text-sm text-muted">Shown on the Portuguese site (/pt). Empty fields use the English text.</p>
+      <div className="grid gap-4 sm:grid-cols-2" lang="pt-BR">
+        <Field id="settings-tagline-pt" label="Tagline (PT)">
+          <Input id="settings-tagline-pt" maxLength={200} {...register('site.tagline_pt')} />
+        </Field>
+        <Field id="settings-description-pt" label="Default description (PT)">
+          <Textarea id="settings-description-pt" rows={3} maxLength={320} {...register('site.description_pt')} />
+        </Field>
+      </div>
+      <Field id="settings-contact-pt" label="Contact page introduction (PT)">
+        <Textarea id="settings-contact-pt" lang="pt-BR" rows={3} maxLength={600} {...register('contact.intro_pt')} />
+      </Field>
       <div className="flex justify-end">
         <Button type="submit" disabled={formState.isSubmitting || !formState.isDirty}>
           {formState.isSubmitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />} Save settings

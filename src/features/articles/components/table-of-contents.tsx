@@ -1,13 +1,15 @@
+import { getI18n } from '@/i18n/server';
 import type { HeadingEntry } from '@/lib/content/rich-text';
 import { cn } from '@/utils/cn';
 
-export function TableOfContents({ headings, className }: { headings: HeadingEntry[]; className?: string }) {
+export async function TableOfContents({ headings, className }: { headings: HeadingEntry[]; className?: string }) {
   const items = headings.filter((heading) => heading.level <= 3);
   if (items.length < 3) return null;
+  const { t } = await getI18n();
   return (
     <nav aria-labelledby="toc-heading" className={cn('text-sm', className)}>
       <p id="toc-heading" className="font-semibold text-ink">
-        On this page
+        {t.article.toc}
       </p>
       <ol className="mt-3 space-y-1.5 border-l border-rule">
         {items.map((heading) => (

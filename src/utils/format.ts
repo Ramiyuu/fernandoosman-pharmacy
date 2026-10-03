@@ -1,22 +1,35 @@
-const dateFormatter = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
+import { INTL_LOCALE, LOCALE_NAMES, type Locale } from '@/i18n/config';
 
-const dateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'UTC',
-});
+// Formatters are created once per locale. Dates are shown in UTC so server
+// and client render the same string.
+const cacheBy = <T>(create: (tag: string) => T) => {
+  const store = new Map<Locale, T>();
+  return (locale: Locale): T => {
+    let value = store.get(locale);
+    if (!value) {
+      value = create(INTL_LOCALE[locale]);
+      store.set(locale, value);
+    }
+    return value;
+  };
+};
 
-const monthYearFormatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
-
-const numberFormatter = new Intl.NumberFormat('en-GB');
+const dateFormatter = cacheBy(
+  (tag) => new Intl.DateTimeFormat(tag, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }),
+);
+const dateTimeFormatter = cacheBy(
+  (tag) =>
+    new Intl.DateTimeFormat(tag, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }),
+);
+const monthYearFormatter = cacheBy((tag) => new Intl.DateTimeFormat(tag, { month: 'short', year: 'numeric', timeZone: 'UTC' }));
+const numberFormatter = cacheBy((tag) => new Intl.NumberFormat(tag));
 
 function toDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
@@ -24,24 +37,24 @@ function toDate(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** "23 Jun 2026" (UTC, so server and client render the same string). */
-export function formatDate(value: string | Date | null | undefined): string {
+/** "23 Jun 2026" / "23 de jun. de 2026" (UTC). */
+export function formatDate(value: string | Date | null | undefined, locale: Locale = 'en'): string {
   const date = toDate(value);
-  return date ? dateFormatter.format(date) : '';
+  return date ? dateFormatter(locale).format(date) : '';
 }
 
-export function formatDateTime(value: string | Date | null | undefined): string {
+export function formatDateTime(value: string | Date | null | undefined, locale: Locale = 'en'): string {
   const date = toDate(value);
-  return date ? `${dateTimeFormatter.format(date)} UTC` : '';
+  return date ? `${dateTimeFormatter(locale).format(date)} UTC` : '';
 }
 
-export function formatMonthYear(value: string | Date | null | undefined): string {
+export function formatMonthYear(value: string | Date | null | undefined, locale: Locale = 'en'): string {
   const date = toDate(value);
-  return date ? monthYearFormatter.format(date) : '';
+  return date ? monthYearFormatter(locale).format(date) : '';
 }
 
-export function formatNumber(value: number): string {
-  return numberFormatter.format(value);
+export function formatNumber(value: number, locale: Locale = 'en'): string {
+  return numberFormatter(locale).format(value);
 }
 
 export function formatBytes(bytes: number): string {
@@ -56,11 +69,9 @@ export function toIsoDate(value: string | Date | null | undefined): string | und
   return toDate(value)?.toISOString();
 }
 
-export const LANGUAGE_LABELS: Record<string, string> = {
-  en: 'English',
-  pt: 'Português',
-};
+export const LANGUAGE_LABELS: Record<string, string> = LOCALE_NAMES;
 
+/** A language named in itself ("English", "Português"). */
 export function languageLabel(code: string): string {
   return LANGUAGE_LABELS[code] ?? code.toUpperCase();
 }

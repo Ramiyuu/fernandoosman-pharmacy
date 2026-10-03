@@ -5,6 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
 
+import type { Locale } from '@/i18n/config';
+import type { Dictionary } from '@/i18n/dictionaries/en';
+import { dictionaryFor } from '@/i18n/dictionaries';
 import { CALLOUT_VARIANTS, type RichTextDoc, type RichTextMark, type RichTextNode } from '@/lib/content/rich-text';
 import { isAllowedContentImageUrl } from '@/lib/storage/public-url';
 import { cn } from '@/utils/cn';
@@ -21,17 +24,17 @@ import 'katex/dist/katex.min.css';
  * server already sanitised them on save.
  */
 
+type Copy = Dictionary['content'];
+
 const CALLOUTS = {
-  info: { label: 'Info', Icon: Info, className: 'border-azure-100 bg-azure-50', iconClass: 'text-azure-600' },
-  note: { label: 'Note', Icon: StickyNote, className: 'border-rule bg-mist', iconClass: 'text-navy-700' },
+  info: { Icon: Info, className: 'border-azure-100 bg-azure-50', iconClass: 'text-azure-600' },
+  note: { Icon: StickyNote, className: 'border-rule bg-mist', iconClass: 'text-navy-700' },
   warning: {
-    label: 'Caution',
     Icon: TriangleAlert,
     className: 'border-warning-50 bg-warning-50',
     iconClass: 'text-warning-700',
   },
   'key-point': {
-    label: 'Key point',
     Icon: Lightbulb,
     className: 'border-teal-100 bg-teal-50',
     iconClass: 'text-teal-700',
@@ -97,11 +100,11 @@ function renderText(node: RichTextNode, key: string): ReactNode {
   );
 }
 
-function renderChildren(node: RichTextNode, keyPrefix: string): ReactNode {
-  return node.content?.map((child, index) => renderNode(child, `${keyPrefix}-${index}`));
+function renderChildren(node: RichTextNode, keyPrefix: string, copy: Copy): ReactNode {
+  return node.content?.map((child, index) => renderNode(child, `${keyPrefix}-${index}`, copy));
 }
 
-function renderCitation(node: RichTextNode, key: string): ReactNode {
+function renderCitation(node: RichTextNode, key: string, copy: Copy): ReactNode {
   const refs = stringAttr(node, 'refs')
     .split(',')
     .filter((value) => /^\d{1,3}$/.test(value));
@@ -112,7 +115,7 @@ function renderCitation(node: RichTextNode, key: string): ReactNode {
       {refs.map((ref, index) => (
         <Fragment key={ref}>
           {index > 0 ? ',' : null}
-          <a href={`#ref-${ref}`} className="!no-underline" aria-label={`Reference ${ref}`}>
+          <a href={`#ref-${ref}`} className="!no-underline" aria-label={`${copy.reference} ${ref}`}>
             {ref}
           </a>
         </Fragment>
@@ -156,9 +159,9 @@ function renderImage(node: RichTextNode, key: string): ReactNode {
   );
 }
 
-function renderTable(node: RichTextNode, key: string): ReactNode {
+function renderTable(node: RichTextNode, key: string, copy: Copy): ReactNode {
   return (
-    <div key={key} className="my-8 overflow-x-auto" role="region" aria-label="Table" tabIndex={0}>
+    <div key={key} className="my-8 overflow-x-auto" role="region" aria-label={copy.table} tabIndex={0}>
       <table className="w-full border-collapse border-y-2 border-navy-900 font-sans text-[0.9375rem] leading-snug">
         <tbody>
           {node.content?.map((row, rowIndex) => (
@@ -176,7 +179,7 @@ function renderTable(node: RichTextNode, key: string): ReactNode {
                       Tag === 'th' && 'border-b border-navy-900 font-semibold text-ink',
                     )}
                   >
-                    {renderChildren(cell, `${key}-r${rowIndex}-c${cellIndex}`)}
+                    {renderChildren(cell, `${key}-r${rowIndex}-c${cellIndex}`, copy)}
                   </Tag>
                 );
               })}
@@ -188,9 +191,10 @@ function renderTable(node: RichTextNode, key: string): ReactNode {
   );
 }
 
-function renderCallout(node: RichTextNode, key: string): ReactNode {
+function renderCallout(node: RichTextNode, key: string, copy: Copy): ReactNode {
   const variant = stringAttr(node, 'variant');
-  const config = CALLOUTS[(CALLOUT_VARIANTS as readonly string[]).includes(variant) ? (variant as CalloutKey) : 'info'];
+  const name = (CALLOUT_VARIANTS as readonly string[]).includes(variant) ? (variant as CalloutKey) : 'info';
+  const config = CALLOUTS[name];
   const { Icon } = config;
   return (
     <aside
@@ -199,41 +203,41 @@ function renderCallout(node: RichTextNode, key: string): ReactNode {
     >
       <p className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-ink">
         <Icon className={cn('size-4', config.iconClass)} aria-hidden="true" />
-        {config.label}
+        {copy.callouts[name]}
       </p>
-      <div className="space-y-3 text-navy-900">{renderChildren(node, key)}</div>
+      <div className="space-y-3 text-navy-900">{renderChildren(node, key, copy)}</div>
     </aside>
   );
 }
 
-function renderNode(node: RichTextNode, key: string): ReactNode {
+function renderNode(node: RichTextNode, key: string, copy: Copy): ReactNode {
   switch (node.type) {
     case 'text':
       return <Fragment key={key}>{renderText(node, key)}</Fragment>;
     case 'paragraph':
-      return <p key={key}>{renderChildren(node, key)}</p>;
+      return <p key={key}>{renderChildren(node, key, copy)}</p>;
     case 'heading': {
       const level = Math.min(Math.max(numberAttr(node, 'level', 2), 2), 4);
       const Tag = `h${level}` as 'h2' | 'h3' | 'h4';
       const id = stringAttr(node, 'id') || undefined;
       return (
         <Tag key={key} id={id}>
-          {renderChildren(node, key)}
+          {renderChildren(node, key, copy)}
         </Tag>
       );
     }
     case 'bulletList':
-      return <ul key={key}>{renderChildren(node, key)}</ul>;
+      return <ul key={key}>{renderChildren(node, key, copy)}</ul>;
     case 'orderedList':
       return (
         <ol key={key} start={numberAttr(node, 'start', 1)}>
-          {renderChildren(node, key)}
+          {renderChildren(node, key, copy)}
         </ol>
       );
     case 'listItem':
-      return <li key={key}>{renderChildren(node, key)}</li>;
+      return <li key={key}>{renderChildren(node, key, copy)}</li>;
     case 'blockquote':
-      return <blockquote key={key}>{renderChildren(node, key)}</blockquote>;
+      return <blockquote key={key}>{renderChildren(node, key, copy)}</blockquote>;
     case 'codeBlock': {
       const language = stringAttr(node, 'language');
       return (
@@ -249,33 +253,42 @@ function renderNode(node: RichTextNode, key: string): ReactNode {
     case 'footnote':
       return (
         <sup key={key}>
-          <a href={`#note-${stringAttr(node, 'id')}`} aria-label={`Footnote: ${stringAttr(node, 'text')}`}>
+          <a href={`#note-${stringAttr(node, 'id')}`} aria-label={`${copy.footnote}: ${stringAttr(node, 'text')}`}>
             †
           </a>
         </sup>
       );
     case 'video': {
       const src = safeVideoSource(stringAttr(node, 'src'));
-      return src ? <VideoPlayer key={key} src={src} title={stringAttr(node, 'title') || 'Video'} /> : null;
+      return src ? (
+        <VideoPlayer
+          key={key}
+          src={src}
+          title={stringAttr(node, 'title') || copy.video}
+          labels={{ play: copy.play(stringAttr(node, 'title') || copy.video), external: copy.externalPlayer }}
+        />
+      ) : null;
     }
     case 'image':
       return renderImage(node, key);
     case 'table':
-      return renderTable(node, key);
+      return renderTable(node, key, copy);
     case 'inlineMath':
       return <MathInline key={key} latex={stringAttr(node, 'latex')} />;
     case 'blockMath':
       return <MathBlock key={key} latex={stringAttr(node, 'latex')} />;
     case 'callout':
-      return renderCallout(node, key);
+      return renderCallout(node, key, copy);
     case 'citation':
-      return renderCitation(node, key);
+      return renderCitation(node, key, copy);
     default:
       return null;
   }
 }
 
-export function RichContent({ doc, className }: { doc: RichTextDoc; className?: string }) {
+/** `language` is the text's own language: callout labels and footnotes follow it. */
+export function RichContent({ doc, language = 'en', className }: { doc: RichTextDoc; language?: Locale; className?: string }) {
+  const copy = dictionaryFor(language).content;
   const notes = new Map<string, string>();
   const collect = (nodes: RichTextNode[]) => {
     for (const node of nodes) {
@@ -286,10 +299,10 @@ export function RichContent({ doc, className }: { doc: RichTextDoc; className?: 
   collect(doc.content);
   return (
     <div className={cn('article-body', className)}>
-      {doc.content.map((node, index) => renderNode(node, `n${index}`))}
+      {doc.content.map((node, index) => renderNode(node, `n${index}`, copy))}
       {notes.size ? (
-        <section aria-label="Footnotes" className="mt-12 border-t border-rule pt-5">
-          <h2>Footnotes</h2>
+        <section aria-label={copy.footnotes} className="mt-12 border-t border-rule pt-5">
+          <h2>{copy.footnotes}</h2>
           <ol>
             {[...notes].map(([id, text]) => (
               <li key={id} id={`note-${id}`} className="scroll-mt-24">

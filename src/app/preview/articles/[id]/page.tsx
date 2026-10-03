@@ -41,7 +41,7 @@ export default async function ArticlePreviewPage({ params }: PageProps<'/preview
   if (!raw) notFound();
 
   const article: ArticleDetail = { ...raw, content: asRichTextDoc(raw.content) };
-  const [settings, profile] = await Promise.all([getSiteSettings(), getSiteProfile()]);
+  const [settings, profile] = await Promise.all([getSiteSettings('en'), getSiteProfile('en')]);
 
   return (
     <>
@@ -53,7 +53,7 @@ export default async function ArticlePreviewPage({ params }: PageProps<'/preview
           Back to the editor
         </Link>
       </div>
-      <SiteHeader siteName={settings.site.name} />
+      <SiteHeader siteName={settings.site.name} languageSwitcher={false} />
       <main id="main">
         <ArticleView article={article} authorName={article.author_name ?? profile?.full_name ?? ''} preview />
       </main>

@@ -47,6 +47,42 @@ export async function saveProjectAction(input: ProjectInput): Promise<ActionResu
   return ok(result, id ? 'Project saved.' : 'Project created.');
 }
 
+/** Opens the project's version in another language, creating a draft copy when missing. */
+export async function createProjectTranslationAction(input: {
+  id: string;
+  language: 'en' | 'pt';
+}): Promise<ActionResult<{ id: string; created: boolean }>> {
+  const guard = await guardAction('projects:write');
+  if (!guard.ok) return guard;
+  const { db, userId } = guard.session;
+  if (!uuidSchema.safeParse(input.id).success || !['en', 'pt'].includes(input.language)) return fail('Invalid request.');
+
+  let result: { id: string; created: boolean };
+  try {
+    const row = await db.one<{ result: { id: string; created: boolean } }>(
+      sql`select public.admin_create_project_translation(${input.id}::uuid, ${input.language}) as result`,
+    );
+    result = row.result;
+  } catch (error) {
+    return failFromDbError('projects.translate', error);
+  }
+
+  if (result.created) {
+    await logActivity(db, userId, {
+      action: 'project_created',
+      entityType: 'project',
+      entityId: result.id,
+      summary: `${input.language === 'pt' ? 'Portuguese' : 'English'} version created from ${input.id}`,
+    });
+  }
+  return ok(
+    result,
+    result.created
+      ? `${input.language === 'pt' ? 'Portuguese' : 'English'} draft created. Translate it and publish when ready.`
+      : 'Opening the existing version.',
+  );
+}
+
 export async function deleteProjectAction(id: string): Promise<ActionResult> {
   const guard = await guardAction('projects:write');
   if (!guard.ok) return guard;

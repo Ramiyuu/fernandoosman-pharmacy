@@ -1,29 +1,38 @@
 import Link from 'next/link';
+import { ViewTransition } from 'react';
 
 import { buttonVariants } from '@/components/ui/button';
+import { getI18n } from '@/i18n/server';
 import type { ArticleCard } from '@/types/content';
 
 import { ArticleMeta } from './article-meta';
 import { CoverImage } from './cover-image';
 
-export function FeaturedArticle({ article, fallbackAuthor }: { article: ArticleCard; fallbackAuthor: string }) {
+export async function FeaturedArticle({ article, fallbackAuthor }: { article: ArticleCard; fallbackAuthor: string }) {
+  const { t, href } = await getI18n();
+  const url = href(`/articles/${article.slug}`);
   return (
-    <article className="featured-publication grid items-center gap-8 rounded-xl border border-rule bg-azure-50 p-4 sm:p-6 lg:grid-cols-[1.15fr_1fr] lg:gap-12 lg:p-8">
-      <CoverImage
-        bucket="article-images"
-        path={article.cover_image_path}
-        alt={article.cover_image_alt}
-        seed={article.slug}
-        sizes="(min-width: 1024px) 600px, 100vw"
-        className="aspect-[16/10] rounded-lg border border-rule"
-      />
+    <article
+      data-spotlight
+      className="featured-publication grid items-center gap-8 rounded-xl border border-rule bg-azure-50 p-4 sm:p-6 lg:grid-cols-[1.15fr_1fr] lg:gap-12 lg:p-8"
+    >
+      <ViewTransition name={`cover-${article.translation_group}`} share="morph" default="none">
+        <CoverImage
+          bucket="article-images"
+          path={article.cover_image_path}
+          alt={article.cover_image_alt}
+          seed={article.slug}
+          sizes="(min-width: 1024px) 600px, 100vw"
+          className="featured-cover aspect-[16/10] rounded-lg border border-rule"
+        />
+      </ViewTransition>
       <div>
         <p className="text-sm font-medium text-teal-700">
-          Featured{article.category ? ` ${article.category.name.toLowerCase()}` : ' article'}
+          {article.category ? t.article.featuredCategory(article.category.name) : t.home.featured}
         </p>
         <h3 className="mt-2 text-2xl leading-tight font-semibold tracking-tight text-ink sm:text-3xl">
           <Link
-            href={`/articles/${article.slug}`}
+            href={url}
             className="hover:underline hover:decoration-teal-500 hover:decoration-2 hover:underline-offset-4"
           >
             {article.title}
@@ -37,8 +46,8 @@ export function FeaturedArticle({ article, fallbackAuthor }: { article: ArticleC
           author={article.author_name ?? fallbackAuthor}
           className="mt-5"
         />
-        <Link href={`/articles/${article.slug}`} className={buttonVariants({ variant: 'dark', className: 'mt-6' })}>
-          Read article
+        <Link href={url} className={buttonVariants({ variant: 'dark', className: 'mt-6' })}>
+          {t.article.readArticle}
         </Link>
       </div>
     </article>

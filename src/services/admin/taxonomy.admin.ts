@@ -10,8 +10,10 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 interface TopicAdminRow {
   id: string;
   name: string;
+  name_pt: string;
   slug: string;
   description: string;
+  description_pt: string;
   icon: string;
   sort_order: number;
   usage: number;
@@ -20,8 +22,10 @@ interface TopicAdminRow {
 interface CategoryAdminRow {
   id: string;
   name: string;
+  name_pt: string;
   slug: string;
   description: string;
+  description_pt: string;
   sort_order: number;
   usage: number;
 }
@@ -30,11 +34,11 @@ export async function getTopicsAndCategories(db: Db) {
   try {
     const { topics, categories } = await db.transaction(async (tx) => ({
       topics: await tx.many<TopicAdminRow>(sql`
-        select t.id, t.name, t.slug, t.description, t.icon, t.sort_order,
+        select t.id, t.name, t.name_pt, t.slug, t.description, t.description_pt, t.icon, t.sort_order,
                (select count(*) from public.article_topics atp where atp.topic_id = t.id) as usage
         from public.topics t order by t.sort_order, t.name`),
       categories: await tx.many<CategoryAdminRow>(sql`
-        select c.id, c.name, c.slug, c.description, c.sort_order,
+        select c.id, c.name, c.name_pt, c.slug, c.description, c.description_pt, c.sort_order,
                (select count(*) from public.articles a where a.category_id = c.id and a.deleted_at is null) as usage
         from public.categories c order by c.sort_order, c.name`),
     }));

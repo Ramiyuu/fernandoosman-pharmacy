@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
+import { getI18n } from '@/i18n/server';
 import { cn } from '@/utils/cn';
 
 interface PaginationProps {
@@ -23,17 +24,18 @@ function pageWindow(page: number, totalPages: number): Array<number | 'gap'> {
 }
 
 /** Plain links (crawlable, works without JavaScript). */
-export function Pagination({ page, totalPages, hrefFor, className }: PaginationProps) {
+export async function Pagination({ page, totalPages, hrefFor, className }: PaginationProps) {
   if (totalPages <= 1) return null;
+  const { t } = await getI18n();
   const linkClass =
     'inline-flex h-10 min-w-10 items-center justify-center gap-1 rounded-md px-3 text-sm text-navy-900 transition-colors hover:bg-navy-50';
 
   return (
-    <nav aria-label="Pagination" className={cn('flex items-center justify-center gap-1', className)}>
+    <nav aria-label={t.pagination.label} className={cn('flex items-center justify-center gap-1', className)}>
       {page > 1 ? (
         <Link href={hrefFor(page - 1)} rel="prev" className={linkClass}>
           <ChevronLeft className="size-4" aria-hidden="true" />
-          <span>Previous</span>
+          <span>{t.pagination.previous}</span>
         </Link>
       ) : null}
       <ul className="hidden items-center gap-1 sm:flex">
@@ -47,7 +49,7 @@ export function Pagination({ page, totalPages, hrefFor, className }: PaginationP
               <Link
                 href={hrefFor(item)}
                 aria-current={item === page ? 'page' : undefined}
-                aria-label={`Page ${item}`}
+                aria-label={t.pagination.page(item)}
                 className={cn(linkClass, 'tabular', item === page && 'bg-navy-900 text-white hover:bg-navy-900')}
               >
                 {item}
@@ -57,11 +59,11 @@ export function Pagination({ page, totalPages, hrefFor, className }: PaginationP
         )}
       </ul>
       <p className="px-3 text-sm text-muted tabular sm:hidden">
-        Page {page} of {totalPages}
+        {t.pagination.pageOf(page, totalPages)}
       </p>
       {page < totalPages ? (
         <Link href={hrefFor(page + 1)} rel="next" className={linkClass}>
-          <span>Next</span>
+          <span>{t.pagination.next}</span>
           <ChevronRight className="size-4" aria-hidden="true" />
         </Link>
       ) : null}

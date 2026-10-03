@@ -7,6 +7,7 @@ import { AdminPage, EmptyState, StatusBadge, tableClasses } from '@/features/adm
 import { PROGRESS_LABELS } from '@/features/projects/components/project-card';
 import { requireAdminPage } from '@/lib/auth/session';
 import { listAdminProjects } from '@/services/admin/projects.admin';
+import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/format';
 
 export const metadata: Metadata = { title: 'Projects' };
@@ -42,6 +43,7 @@ export default async function AdminProjectsPage() {
                 <th scope="col" className={tableClasses.th}>Title</th>
                 <th scope="col" className={tableClasses.th}>Visibility</th>
                 <th scope="col" className={tableClasses.th}>Status</th>
+                <th scope="col" className={tableClasses.th}>Language</th>
                 <th scope="col" className={tableClasses.th}>Order</th>
                 <th scope="col" className={tableClasses.th}>Updated</th>
               </tr>
@@ -62,6 +64,17 @@ export default async function AdminProjectsPage() {
                     <StatusBadge status={project.status} />
                   </td>
                   <td className={tableClasses.td}>{PROGRESS_LABELS[project.progress]}</td>
+                  <td className={cn(tableClasses.td, 'whitespace-nowrap text-xs')}>
+                    <span className="font-semibold text-ink uppercase">{project.language}</span>
+                    {(project.group_languages ?? '')
+                      .split(',')
+                      .filter((code) => code && code !== project.language)
+                      .map((code) => (
+                        <span key={code} className="ml-1.5 text-muted uppercase" title="Another language version exists">
+                          + {code}
+                        </span>
+                      ))}
+                  </td>
                   <td className={`${tableClasses.td} tabular`}>{project.sort_order}</td>
                   <td className={`${tableClasses.td} text-muted`}>{formatDate(project.updated_at)}</td>
                 </tr>

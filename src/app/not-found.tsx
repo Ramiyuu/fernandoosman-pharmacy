@@ -3,22 +3,27 @@ import Link from 'next/link';
 
 import { StatusPage } from '@/components/feedback/status-page';
 import { buttonVariants } from '@/components/ui/button';
+import { getI18n } from '@/i18n/server';
 
-export const metadata: Metadata = { title: 'Page not found', robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t.meta.notFound, robots: { index: false } };
+}
 
-export default function NotFound() {
+export default async function NotFound() {
+  const { t, href } = await getI18n();
   return (
     <StatusPage
       code="404"
-      title="This page does not exist"
-      description="The link may be outdated, or the article may have been moved or unpublished."
+      title={t.errors.notFoundTitle}
+      description={t.errors.notFoundBody}
       actions={
         <>
-          <Link href="/articles" className={buttonVariants({ variant: 'dark' })}>
-            Browse articles
+          <Link href={href('/articles')} className={buttonVariants({ variant: 'dark' })}>
+            {t.errors.browseArticles}
           </Link>
-          <Link href="/search" className={buttonVariants({ variant: 'secondary' })}>
-            Search the site
+          <Link href={href('/search')} className={buttonVariants({ variant: 'secondary' })}>
+            {t.errors.searchSite}
           </Link>
         </>
       }

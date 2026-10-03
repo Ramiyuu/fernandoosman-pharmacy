@@ -16,6 +16,7 @@ export const projectInputSchema = z
     id: uuidSchema.nullable(),
     title: z.string().trim().min(2, 'Add a title.').max(200),
     slug: slugInput,
+    language: z.enum(['en', 'pt']).default('en'),
     summary: z.string().trim().max(600),
     content: z.unknown(),
     status: z.enum(['draft', 'published', 'archived']),

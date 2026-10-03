@@ -19,13 +19,14 @@ import { Field } from '@/components/ui/field';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { ACCEPTED_IMAGE_TYPES, uploadImage } from '@/features/files/client/upload-image';
+import { TranslationSwitcher } from '@/features/admin/components/translation-switcher';
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning';
 import { EMPTY_DOC } from '@/lib/content/rich-text';
 import { publicImageUrl } from '@/lib/storage/public-url';
 import type { ProjectInput } from '@/schemas/project.schema';
 import type { EditorProject } from '@/services/admin/projects.admin';
 
-import { deleteProjectAction, saveProjectAction } from '../actions';
+import { createProjectTranslationAction, deleteProjectAction, saveProjectAction } from '../actions';
 
 type ProjectFormValues = Omit<
   ProjectInput,
@@ -42,6 +43,7 @@ function toFormValues(project: EditorProject | null): ProjectFormValues {
   return {
     title: project?.title ?? '',
     slug: project?.slug ?? '',
+    language: project?.language ?? 'en',
     summary: project?.summary ?? '',
     status: project?.status ?? 'draft',
     progress: project?.progress ?? 'in_progress',
@@ -72,6 +74,7 @@ export function ProjectEditor({
   const { register, control, handleSubmit, setError, formState } = form;
   const links = useFieldArray({ control, name: 'links' });
   const coverAlt = useWatch({ control, name: 'cover_image_alt' });
+  const currentLanguage = useWatch({ control, name: 'language' }) ?? 'en';
   const gallery = useFieldArray({ control, name: 'gallery' });
   const contentRef = useRef<JSONContent>(project?.content ?? EMPTY_DOC);
   const [contentDirty, setContentDirty] = useState(false);
@@ -102,6 +105,21 @@ export function ProjectEditor({
     else router.refresh();
   };
 
+  const openTranslation = async (language: 'en' | 'pt') => {
+    if (!project) return;
+    if (formState.isDirty || contentDirty) {
+      toast.error('Save this project before opening the other language version.');
+      return;
+    }
+    const result = await createProjectTranslationAction({ id: project.id, language }).catch(() => null);
+    if (!result || !result.ok) {
+      toast.error(result?.error ?? 'Could not reach the server.');
+      return;
+    }
+    toast.success(result.message ?? 'Opening the other version.');
+    router.push(`/admin/projects/${result.data.id}`);
+  };
+
   const addGalleryImage = async (file: File) => {
     setGalleryUploading(true);
     try {
@@ -124,6 +142,13 @@ export function ProjectEditor({
           <Link href="/admin/projects" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
             <ArrowLeft className="size-4" aria-hidden="true" /> Projects
           </Link>
+          <TranslationSwitcher
+            currentId={project?.id ?? null}
+            currentLanguage={currentLanguage}
+            versions={project?.versions ?? []}
+            basePath="/admin/projects"
+            onCreate={openTranslation}
+          />
           <p className="text-xs text-muted" role="status">
             {formState.isDirty || contentDirty ? 'Unsaved changes' : project ? 'All changes saved' : 'New project'}
           </p>
@@ -264,6 +289,12 @@ export function ProjectEditor({
                 <Input id="project-end" type="date" {...register('completed_on')} />
               </Field>
             </div>
+            <Field id="project-language" label="Language" hint="The language this version is written in.">
+              <NativeSelect id="project-language" {...register('language')}>
+                <option value="en">English</option>
+                <option value="pt">Português</option>
+              </NativeSelect>
+            </Field>
             <Field
               id="project-slug"
               label="URL slug"

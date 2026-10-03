@@ -414,33 +414,302 @@
   }
 }
 
-/* FO / Research journal. See DESIGN.md for the complete visual system. */
-.science-hero {
+/* -----------------------------------------------------------------------------
+ * FO / Research journal. See DESIGN.md for the complete visual system.
+ * Motion: one authored moment (the molecule-to-evidence story on the home
+ * page); everything else is feedback (pointer, switcher) or scroll-linked
+ * reveals of data that the scroll itself explains. Every animation has a
+ * prefers-reduced-motion path; scroll-driven effects are progressive
+ * enhancement (content is visible where animation-timeline is unsupported).
+ * -------------------------------------------------------------------------- */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --header-height: 5rem;
+}
+
+html {
+  scrollbar-color: #b9c6dc transparent;
+}
+
+body {
+  caret-color: var(--color-teal-600);
+}
+
+.site-header {
+  box-shadow: 0 4px 24px #0b1f4405;
+}
+
+/* Active page: a teal rule that grows from the left; hover previews it. */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0.75rem;
+  bottom: -13px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-teal-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s var(--ease-out), opacity 0.2s;
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+  opacity: 0.35;
+}
+.nav-link[aria-current='page']::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+/* -----------------------------------------------------------------------------
+ * Language switcher: EN | PT with a sliding thumb.
+ * -------------------------------------------------------------------------- */
+.lang-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  height: 2.25rem;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--color-navy-50);
+  box-shadow: inset 0 0 0 1px var(--color-rule);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.lang-switch-thumb {
+  position: absolute;
+  inset-block: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 6px;
+  background: var(--color-navy-900);
+  box-shadow: 0 2px 8px -2px rgb(11 31 68 / 0.45);
+  transition: transform 0.45s var(--ease-out);
+}
+.lang-switch[data-active='pt'] .lang-switch-thumb {
+  transform: translateX(100%);
+}
+.lang-switch-option {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 2.25rem;
+  height: 100%;
+  padding-inline: 0.45rem;
+  border-radius: 6px;
+  color: var(--color-navy-800);
+  transition: color 0.3s var(--ease-out);
+}
+a.lang-switch-option:hover {
+  color: var(--color-ink);
+}
+.lang-switch[data-active='en'] .lang-switch-option:nth-child(2),
+.lang-switch[data-active='pt'] .lang-switch-option:nth-child(3) {
+  color: var(--color-white);
+}
+@media (max-width: 1023px) {
+  .lang-switch {
+    height: 2.5rem;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+ * Home: from molecule to evidence.
+ * The section is navy from the hero through the three story steps. With
+ * WebGL (data-webgl="on") a sticky canvas sits behind the text; otherwise
+ * each step shows its static figure.
+ * -------------------------------------------------------------------------- */
+.evidence {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
-  color: white;
+  color: var(--color-white);
   background:
-    radial-gradient(ellipse at 78% 30%, #123b62 0, transparent 45%),
-    linear-gradient(115deg, #071531, #0b1f44 65%, #103344);
+    radial-gradient(ellipse 70% 40% at 80% 8%, #123b62 0, transparent 70%),
+    radial-gradient(ellipse 60% 30% at 15% 96%, #0d3540 0, transparent 70%),
+    linear-gradient(170deg, #071531 0%, #0b1f44 48%, #0a2140 100%);
 }
-.science-hero::before {
+
+.evidence-stage {
+  display: none;
+}
+.evidence[data-webgl='on'] .evidence-stage {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 0;
+  display: block;
+  height: calc(100dvh - var(--header-height));
+  margin-bottom: calc(-1 * (100dvh - var(--header-height)));
+  overflow: hidden;
+  pointer-events: none;
+}
+.evidence-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Keeps the text column legible over the particles. */
+.evidence-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(7 21 49 / 0.94) 0%, rgb(7 21 49 / 0.6) 32%, transparent 56%);
+}
+.evidence-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.evidence-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  translate: 14px -50%;
+  transition: translate 0.3s var(--ease-out);
+  transform: translate3d(-999px, -999px, 0);
+  padding: 4px 10px;
+  border: 1px solid rgb(199 210 229 / 0.2);
+  border-radius: 6px;
+  background: rgb(11 31 68 / 0.72);
+  color: var(--color-navy-100);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+}
+/* Nodes near the right edge label themselves on their left. */
+.evidence-label[data-side='left'] {
+  translate: calc(-100% - 14px) -50%;
+}
+.evidence-rail {
+  position: absolute;
+  right: max(1.5rem, calc((100vw - 76rem) / 2 + 2rem));
+  bottom: 1.75rem;
+  z-index: 1;
+  display: flex;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(199 210 229 / 0.55);
+}
+.evidence-rail li {
+  position: relative;
+  min-width: 4.5rem;
+  padding-top: 0.6rem;
+  transition: color 0.4s var(--ease-out);
+}
+.evidence-rail li::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(199 210 229 / 0.18);
+}
+.evidence-rail li::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-teal-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease-out);
+}
+.evidence[data-step='1'] [data-rail-step='1'],
+.evidence[data-step='2'] [data-rail-step='2'],
+.evidence[data-step='3'] [data-rail-step='3'] {
+  color: var(--color-white);
+}
+.evidence[data-step='1'] [data-rail-step='1']::after,
+.evidence[data-step='2'] [data-rail-step='1']::after,
+.evidence[data-step='2'] [data-rail-step='2']::after,
+.evidence[data-step='3'] [data-rail-step]::after {
+  transform: scaleX(1);
+}
+
+/* Hero (first viewport). */
+.evidence-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-items: center;
+  gap: 2.5rem;
+  padding-block: 3.5rem 3rem;
+}
+@media (min-width: 768px) {
+  .evidence-hero {
+    min-height: calc(100dvh - var(--header-height));
+    padding-block: 4rem;
+  }
+}
+@media (min-width: 1024px) {
+  .evidence-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .evidence[data-webgl='on'] .evidence-hero {
+    grid-template-columns: minmax(0, 37rem);
+  }
+}
+.evidence-hero::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  opacity: 0.1;
+  opacity: 0.08;
   background-image: linear-gradient(#8ddbdc 1px, transparent 1px), linear-gradient(90deg, #8ddbdc 1px, transparent 1px);
   background-size: 72px 72px;
-  mask-image: linear-gradient(90deg, transparent, black);
+  mask-image: radial-gradient(ellipse 60% 70% at 75% 40%, black, transparent);
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  font-size: 0.9375rem;
+}
+.hero-headline {
+  font-weight: 600;
+  color: var(--color-teal-200);
+}
+.hero-focus {
+  color: var(--color-navy-200);
+  font-size: 0.875rem;
+  font-weight: 300;
 }
 .hero-name {
+  margin-top: 1.25rem;
   max-width: 8ch;
-  font-size: clamp(3.4rem, 6.8vw, 6.5rem);
+  font-size: clamp(3.2rem, 6.6vw, 6.25rem);
   line-height: 1.02;
   font-weight: 550;
-  letter-spacing: -0.065em;
+  letter-spacing: -0.04em;
   overflow-wrap: normal;
+}
+.hero-bio {
+  margin-top: 1.5rem;
+  max-width: 34rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1.2rem, 1.55vw, 1.45rem);
+  line-height: 1.5;
+  color: rgb(255 255 255 / 0.86);
+}
+.hero-actions {
+  margin-top: 2.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
 }
 .hero-primary,
 .hero-secondary,
@@ -448,152 +717,328 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  min-height: 3.25rem;
+  border-radius: 10px;
+  font-size: 0.9375rem;
   font-weight: 600;
-  transition:
-    background 0.2s,
-    transform 0.2s;
 }
+/* Button-in-button: the arrow sits in its own tile and leans toward the destination on hover. */
 .hero-primary {
-  background: #fff;
-  color: #0b1f44;
-  box-shadow: 0 8px 32px #0002;
+  gap: 0.875rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+  background: var(--color-white);
+  color: var(--color-navy-900);
+  box-shadow: 0 14px 34px -16px rgb(20 184 166 / 0.55);
+  transform: translate(var(--tx, 0px), var(--ty, 0px));
+  transition:
+    transform 0.55s var(--ease-out),
+    background-color 0.2s,
+    scale 0.15s;
 }
 .hero-primary:hover {
-  background: #ccfbf1;
-  transform: translateY(-2px);
+  background: var(--color-teal-50);
+}
+.hero-primary:active {
+  scale: 0.98;
+}
+.hero-primary-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 7px;
+  background: var(--color-navy-900);
+  color: var(--color-white);
+  transition:
+    transform 0.45s var(--ease-out),
+    background-color 0.25s;
+}
+.hero-primary:hover .hero-primary-icon {
+  transform: translate(2px, -2px);
+  background: var(--color-teal-700);
 }
 .hero-secondary {
-  border: 1px solid #ffffff40;
-  background: #ffffff08;
+  padding-inline: 1.25rem;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.04);
+  color: var(--color-white);
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    scale 0.15s;
 }
-.hero-secondary:hover,
+.hero-secondary:hover {
+  border-color: rgb(255 255 255 / 0.5);
+  background: rgb(255 255 255 / 0.09);
+}
+.hero-secondary:active {
+  scale: 0.98;
+}
+.hero-link {
+  gap: 0.5rem;
+  padding-inline: 0.75rem;
+  color: var(--color-navy-200);
+  font-weight: 500;
+  transition: color 0.2s;
+}
 .hero-link:hover {
-  background: #ffffff15;
+  color: var(--color-white);
 }
-.research-orbit {
+.hero-figure {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .evidence[data-webgl='off'] .hero-figure {
+    display: block;
+    width: 100%;
+    max-width: 34rem;
+    justify-self: center;
+  }
+}
+
+/* Story steps. */
+.evidence-steps {
   position: relative;
-  width: 100%;
-  max-width: 540px;
-  aspect-ratio: 1;
-  justify-self: center;
-  perspective: 700px;
+  z-index: 1;
+  margin: 0;
+  padding: 0 0 2rem;
+  list-style: none;
 }
-.orbit-grid {
-  position: absolute;
-  inset: 6%;
-  border-radius: 50%;
-  background: radial-gradient(circle, #14b8a620, transparent 65%);
-  box-shadow: inset 0 0 100px #2563eb18;
+.evidence-step {
+  padding-block: 3.5rem;
 }
-.orbit-ring {
-  position: absolute;
-  inset: 12%;
-  border: 1px solid #88cfee45;
-  border-radius: 50%;
-  box-shadow: 0 0 24px #22d3ee08;
-}
-.orbit-ring-one {
-  transform: rotateX(58deg) rotateZ(-30deg);
-}
-.orbit-ring-two {
-  transform: rotateY(55deg) rotateZ(40deg);
-  border-color: #14b8a690;
-}
-.orbit-ring-three {
-  inset: 3%;
-  border-style: dashed;
-  border-color: #c7d2e528;
-}
-.orbit-core {
-  position: absolute;
-  inset: 29%;
+.evidence[data-webgl='on'] .evidence-step {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 15%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 20%, #fff, #dbe7fe);
-  box-shadow:
-    0 0 80px #22d3ee24,
-    0 25px 70px #0005,
-    inset 0 2px 3px #fff;
+  min-height: 88dvh;
+  padding-block: 0;
 }
-.orbit-core img {
-  position: absolute;
-  width: 66%;
+.evidence[data-webgl='on'] .evidence-step > * {
+  width: 100%;
+}
+.evidence-copy {
+  max-width: 32rem;
+}
+.evidence-copy h2 {
+  font-size: clamp(2rem, 3.4vw, 3rem);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.evidence-body {
+  margin-top: 1.25rem;
+  font-family: var(--font-serif);
+  font-size: 1.1875rem;
+  line-height: 1.65;
+  color: rgb(227 233 244 / 0.88);
+}
+.evidence-caption {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  color: rgb(199 210 229 / 0.75);
+}
+.evidence-link {
+  margin-top: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-teal-200);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-underline-offset: 5px;
+}
+.evidence-link:hover {
+  text-decoration: underline;
+}
+.evidence-topics {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+}
+.evidence-topics a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  padding-inline: 0.75rem;
+  border: 1px solid rgb(199 210 229 / 0.24);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.03);
+  color: var(--color-navy-100);
+  font-size: 0.875rem;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s;
+}
+.evidence-topics a:hover {
+  border-color: var(--color-teal-500);
+  background: rgb(20 184 166 / 0.12);
+  color: var(--color-white);
+}
+.step-figure {
+  margin: 0 0 2rem;
+  max-width: 30rem;
+}
+.evidence[data-webgl='on'] .step-figure {
+  display: none;
+}
+.evidence-svg {
+  display: block;
+  width: 100%;
   height: auto;
+  overflow: visible;
 }
-.orbit-label {
+/* On phones the topic names are listed right below the figure; drawn labels would be too small to read. */
+@media (max-width: 639px) {
+  .network-labels {
+    display: none;
+  }
+}
+@media (min-width: 1024px) {
+  .evidence[data-webgl='off'] .evidence-copy {
+    display: grid;
+    grid-template-columns: minmax(0, 32rem) minmax(0, 1fr);
+    column-gap: 4rem;
+    align-content: center;
+    max-width: none;
+  }
+  .evidence[data-webgl='off'] .evidence-copy > * {
+    grid-column: 1;
+  }
+  .evidence[data-webgl='off'] .evidence-copy > .step-figure {
+    grid-column: 2;
+    grid-row: 1 / span 8;
+    align-self: center;
+    justify-self: center;
+    width: 100%;
+    max-width: 34rem;
+    margin: 0;
+  }
+  /* The hero already shows the molecule beside the introduction. */
+  .evidence[data-webgl='off'] .evidence-step-molecule .step-figure {
+    display: none;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+ * Cards: pointer spotlight on the border, a slight tilt, and a lift.
+ * -------------------------------------------------------------------------- */
+[data-spotlight] {
+  position: relative;
+}
+[data-spotlight]::after {
+  content: '';
   position: absolute;
-  display: flex;
+  inset: -1px;
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 0%),
+    rgb(20 184 166 / 0.85),
+    rgb(37 99 235 / 0.35) 40%,
+    transparent 72%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  [data-spotlight]:hover::after {
+    opacity: 1;
+  }
+}
+
+.publication-card {
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px));
+  transition:
+    transform 0.6s var(--ease-out),
+    box-shadow 0.3s,
+    border-color 0.3s;
+}
+.publication-card:hover {
+  --lift: -4px;
+  border-color: #b4c9ef;
+  box-shadow: 0 22px 44px -26px rgb(11 31 68 / 0.4);
+}
+.publication-card img,
+.publication-card svg,
+.featured-cover img,
+.featured-cover svg {
+  transition: transform 0.9s var(--ease-out);
+}
+.publication-card:hover img,
+.publication-card:hover svg,
+.featured-publication:hover .featured-cover img,
+.featured-publication:hover .featured-cover svg {
+  transform: scale(1.035);
+}
+.publication-card:hover .card-read {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.project-card,
+.topic-tile,
+.certificate-card {
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
+}
+.project-card:hover,
+.topic-tile:hover,
+.certificate-card:hover {
+  box-shadow: 0 18px 40px -28px rgb(11 31 68 / 0.38);
+}
+
+.language-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 12px 16px;
-  border: 1px solid #c7d2e530;
-  border-radius: 9px;
-  background: #0b1f44b3;
-  backdrop-filter: blur(12px);
-  font-size: 12px;
-  color: #e3e9f4;
-  box-shadow: 0 12px 32px #0002;
+  height: 1.25rem;
+  padding-inline: 0.4rem;
+  border-radius: 4px;
+  background: var(--color-navy-50);
+  box-shadow: inset 0 0 0 1px var(--color-rule);
+  color: var(--color-navy-800);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: capitalize;
 }
-.orbit-label-one {
-  top: 13%;
-  left: 1%;
+.language-note {
+  margin-top: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--color-azure-50);
+  color: var(--color-azure-800);
+  font-size: 0.875rem;
 }
-.orbit-label-two {
-  top: 48%;
-  right: 0;
+
+/* Text links that underline from the left on hover. */
+.link-arrow {
+  padding-bottom: 2px;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1.5px;
+  transition: background-size 0.4s var(--ease-out);
 }
-.orbit-label-three {
-  bottom: 15%;
-  left: 3%;
+.link-arrow:hover {
+  background-size: 100% 1.5px;
 }
-.orbit-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #14b8a6;
-  box-shadow: 0 0 9px #14b8a6;
-}
-.orbit-node {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #99f6e4;
-  box-shadow: 0 0 25px #14b8a6;
-}
-.orbit-node-one {
-  top: 18%;
-  right: 18%;
-}
-.orbit-node-two {
-  bottom: 20%;
-  right: 21%;
-  width: 7px;
-  height: 7px;
-}
-.orbit-node-three {
-  left: 14%;
-  top: 49%;
-  width: 8px;
-  height: 8px;
-}
-.orbit-caption {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  text-align: center;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: #c7d2e5;
-}
+
+/* -----------------------------------------------------------------------------
+ * Profile, featured article, contact banner.
+ * -------------------------------------------------------------------------- */
 .profile-snapshot {
   background: linear-gradient(125deg, #f2f5fa, #eff4ff88);
   padding-block: 64px;
@@ -612,78 +1057,296 @@
   height: 3px;
   background: linear-gradient(90deg, #2563eb, #14b8a6);
 }
-.publication-card {
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s,
-    border-color 0.2s;
-}
-.publication-card:hover {
-  transform: translateY(-4px);
-  border-color: #b4c9ef;
-  box-shadow: 0 14px 40px -20px #0b1f4440;
-}
 .contact-banner {
-  background: radial-gradient(ellipse at right, #155369, transparent 70%), #0b1f44;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at right, #155369, transparent 70%),
+    var(--color-navy-900);
 }
+.contact-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 3rem;
+  flex-shrink: 0;
+  padding-inline: 1.5rem;
+  border-radius: 10px;
+  background: var(--color-white);
+  color: var(--color-navy-900);
+  font-weight: 600;
+  transform: translate(var(--tx, 0px), var(--ty, 0px));
+  transition:
+    transform 0.55s var(--ease-out),
+    background-color 0.2s,
+    scale 0.15s;
+}
+.contact-cta:hover {
+  background: var(--color-teal-100);
+}
+.contact-cta:active {
+  scale: 0.98;
+}
+.contact-sent {
+  animation: fo-settle 0.5s var(--ease-out) both;
+}
+
 .article-body {
   overflow-wrap: anywhere;
 }
 .article-body h2 {
   letter-spacing: -0.035em;
 }
-.site-header {
-  box-shadow: 0 4px 24px #0b1f4405;
+
+/* Reading progress on article pages (scroll-linked; hidden where unsupported). */
+.reading-progress {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 45;
+  display: none;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-azure-600), var(--color-cyan-400) 70%, var(--color-teal-500));
+  transform: scaleX(0);
+  transform-origin: left;
 }
-@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
-  .hero-intro {
-    animation: hero-enter 0.7s ease-out both;
+@supports (animation-timeline: scroll()) {
+  .reading-progress {
+    display: block;
+    animation: fo-progress linear both;
+    animation-timeline: scroll(root);
   }
-  .research-orbit {
-    animation: hero-enter 1s ease-out both;
-  }
-  .orbit-core {
-    animation: orbit-float 8s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    /* Not autonomous motion: it mirrors the reader's own scrolling. */
+    .reading-progress {
+      animation-duration: auto !important;
+    }
   }
 }
-@keyframes hero-enter {
+
+/* -----------------------------------------------------------------------------
+ * Entrances.
+ * -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* The home page's opening: the introduction settles in sequence. */
+  .hero-intro > * {
+    animation: fo-rise 0.9s var(--ease-out) both;
+  }
+  .hero-intro > :nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  .hero-intro > :nth-child(3) {
+    animation-delay: 0.16s;
+  }
+  .hero-intro > :nth-child(4) {
+    animation-delay: 0.24s;
+  }
+  .hero-figure {
+    animation: fo-settle 1.2s var(--ease-out) 0.2s both;
+  }
+
+  .mobile-drawer {
+    animation: fo-drawer 0.4s var(--ease-out) both;
+  }
+  .mobile-drawer-item {
+    animation: fo-drawer-item 0.45s var(--ease-out) both;
+    animation-delay: calc(80ms + var(--i, 0) * 35ms);
+  }
+
+  @supports (animation-timeline: view()) {
+    /* Story text arrives as its step takes the stage and leaves as the next one
+       comes. The timeline is the whole step (88dvh), so the text is fully
+       opaque while it is anywhere in the readable middle of the screen. */
+    .evidence[data-webgl='on'] .evidence-step {
+      view-timeline-name: --fo-step;
+    }
+    .evidence[data-webgl='on'] .evidence-copy {
+      animation: fo-story linear both;
+      animation-timeline: --fo-step;
+      animation-range: cover 0% cover 100%;
+    }
+
+    /* Lists of cards enter as a list, one column after another. */
+    .card-grid > *,
+    .timeline-item {
+      animation: fo-card linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+    .card-grid > :nth-child(3n + 2) {
+      animation-range: entry 8% entry 78%;
+    }
+    .card-grid > :nth-child(3n) {
+      animation-range: entry 16% entry 86%;
+    }
+
+    /* "Table 1" is unveiled left to right, then its figures settle. */
+    .metrics-grid {
+      animation: fo-unveil linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 40%;
+    }
+    .metric dd {
+      animation: fo-figure linear both;
+      animation-timeline: view();
+      animation-range: entry 30% cover 45%;
+    }
+
+    /* Forest-plot whiskers grow to each topic's share as the row arrives. */
+    .plot-whisker {
+      transform-origin: left;
+      animation: fo-whisker linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 45%;
+    }
+    .plot-marker {
+      animation: fo-marker linear both;
+      animation-timeline: view();
+      animation-range: entry 35% cover 50%;
+    }
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .site-header {
+      animation: fo-header linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 140px;
+    }
+  }
+}
+
+@keyframes fo-rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    translate: 0 18px;
+    filter: blur(8px);
+  }
+}
+@keyframes fo-settle {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+@keyframes fo-story {
+  0% {
+    opacity: 0;
+    translate: 0 48px;
+    filter: blur(6px);
+  }
+  28%,
+  72% {
+    opacity: 1;
+    translate: 0 0;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    translate: 0 -32px;
+  }
+}
+@keyframes fo-card {
+  from {
+    opacity: 0;
+    translate: 0 32px;
+    scale: 0.98;
+  }
+}
+@keyframes fo-unveil {
+  from {
+    clip-path: inset(-40px 100% -40px -40px round 14px);
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
+    clip-path: inset(-40px -40px -40px -40px round 14px);
   }
 }
-@keyframes orbit-float {
-  50% {
-    transform: translateY(-9px);
+@keyframes fo-figure {
+  from {
+    opacity: 0;
+    translate: 0 10px;
   }
 }
-@media (max-width: 1023px) {
-  .research-orbit {
-    max-width: 420px;
+@keyframes fo-whisker {
+  from {
+    transform: scaleX(0);
   }
 }
-@media (max-width: 639px) {
-  .research-orbit {
-    max-width: 330px;
-    margin-block: 16px;
-  }
-  .orbit-label {
-    padding: 8px 10px;
-    font-size: 10px;
-  }
-  .profile-snapshot {
-    padding-block: 40px;
+@keyframes fo-marker {
+  from {
+    opacity: 0;
+    scale: 0;
   }
 }
+@keyframes fo-header {
+  to {
+    box-shadow: 0 10px 30px -16px rgb(11 31 68 / 0.22);
+  }
+}
+@keyframes fo-progress {
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes fo-drawer {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes fo-drawer-item {
+  from {
+    opacity: 0;
+    translate: 16px 0;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+ * Page transitions (React <ViewTransition>): the old page leaves quickly, the
+ * new one arrives gently; article covers morph between card and page.
+ * -------------------------------------------------------------------------- */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.fo-page) {
+  animation: fo-page-out 140ms var(--ease-in) both;
+}
+::view-transition-new(.fo-page) {
+  animation: fo-page-in 380ms var(--ease-out) 60ms both;
+}
+::view-transition-group(.morph) {
+  animation-duration: 450ms;
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: fo-via-blur;
+}
+@keyframes fo-page-out {
+  to {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+@keyframes fo-page-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+}
+@keyframes fo-via-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
   .publication-card,
   .hero-primary,
-  .hero-secondary {
-    transition: none;
+  .contact-cta {
     transform: none;
   }
 }

@@ -1,14 +1,17 @@
+import type { Locale } from '@/i18n/config';
+import { dictionaryFor } from '@/i18n/dictionaries';
 import type { ArticleReference } from '@/types/content';
 import { doiUrl, pubmedUrl } from '@/utils/doi';
 import { safeExternalUrl } from '@/utils/url';
 
 /** Numbered reference list (Vancouver-like). Anchors #ref-N are targets for in-text citations. */
-export function ReferencesList({ references }: { references: ArticleReference[] }) {
+/** `language` is the article's: the heading belongs to the text, like its citations. */
+export function ReferencesList({ references, language }: { references: ArticleReference[]; language: Locale }) {
   if (references.length === 0) return null;
   return (
     <section aria-labelledby="references-heading" className="mt-16 border-t border-rule pt-8">
       <h2 id="references-heading" className="text-xl font-semibold text-ink">
-        References
+        {dictionaryFor(language).content.references}
       </h2>
       <ol className="mt-5 space-y-4 text-[0.9375rem] leading-relaxed text-navy-900">
         {references.map((reference, index) => {

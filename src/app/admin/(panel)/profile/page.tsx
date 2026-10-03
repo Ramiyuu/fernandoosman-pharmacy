@@ -7,12 +7,35 @@ import { ProfileForm, type ProfileFormValues } from '@/features/profile/componen
 import { requireAdminPage } from '@/lib/auth/session';
 import { sql } from '@/lib/db/sql';
 import { failQuery } from '@/services/errors';
-import type { CertificationEntry, EducationEntry, ExperienceEntry, LanguageSkill, SkillGroup } from '@/types/content';
+import type {
+  CertificationEntry,
+  EducationEntry,
+  ExperienceEntry,
+  LanguageSkill,
+  ProfileTranslation,
+  SkillGroup,
+} from '@/types/content';
 import type { SiteProfileRow } from '@/types/database.types';
 
 export const metadata: Metadata = { title: 'Profile & CV' };
 
 const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+function emptyTranslation(pt: ProfileTranslation | undefined): Required<ProfileTranslation> {
+  return {
+    headline: pt?.headline ?? '',
+    focus_areas: pt?.focus_areas ?? [],
+    short_bio: pt?.short_bio ?? '',
+    bio: pt?.bio ?? '',
+    course: pt?.course ?? '',
+    university: pt?.university ?? '',
+    location: pt?.location ?? '',
+    expected_graduation: pt?.expected_graduation ?? '',
+    current_studies: pt?.current_studies ?? [],
+    scientific_interests: pt?.scientific_interests ?? [],
+    interests: pt?.interests ?? [],
+  };
+}
 
 export default async function ProfileAdminPage() {
   const session = await requireAdminPage('profile:write');
@@ -55,6 +78,7 @@ export default async function ProfileAdminPage() {
     experience: asArray<ExperienceEntry>(profile?.experience),
     skills: asArray<SkillGroup>(profile?.skills),
     certifications: asArray<CertificationEntry>(profile?.certifications),
+    translations: { pt: emptyTranslation((profile?.translations as { pt?: ProfileTranslation } | undefined)?.pt) },
   };
 
   return (

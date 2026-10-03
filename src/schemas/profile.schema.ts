@@ -3,6 +3,23 @@ import { z } from 'zod';
 import { imagePathSchema, optionalUrl } from './common';
 
 const shortText = (max: number) => z.string().trim().max(max, `Use at most ${max} characters.`);
+/** Optional Portuguese version of a field; empty means "use the English text". */
+const ptText = (max: number) => shortText(max).optional().default('');
+const ptList = (maxItems: number, maxLength: number) => z.array(shortText(maxLength).min(1)).max(maxItems).optional().default([]);
+
+export const profileTranslationSchema = z.object({
+  headline: ptText(120),
+  focus_areas: ptList(6, 60),
+  short_bio: ptText(400),
+  bio: ptText(6000),
+  course: ptText(120),
+  university: ptText(160),
+  location: ptText(120),
+  expected_graduation: ptText(40),
+  current_studies: ptList(20, 60),
+  scientific_interests: ptList(20, 60),
+  interests: ptList(20, 60),
+});
 
 export const siteProfileSchema = z.object({
   expected_graduation: shortText(40).optional().default(''),
@@ -24,7 +41,9 @@ export const siteProfileSchema = z.object({
     .union([z.coerce.number().int().min(1).max(20), z.literal(''), z.null()])
     .transform((value) => (typeof value === 'number' ? value : null)),
   location: shortText(120),
-  languages: z.array(z.object({ name: shortText(60).min(1), level: shortText(60) })).max(10),
+  languages: z
+    .array(z.object({ name: shortText(60).min(1), level: shortText(60), name_pt: ptText(60), level_pt: ptText(60) }))
+    .max(10),
   interests: z.array(shortText(60).min(1)).max(20),
   linkedin_url: optionalUrl,
   github_url: optionalUrl,
@@ -47,6 +66,12 @@ export const siteProfileSchema = z.object({
         start: shortText(40),
         end: shortText(40),
         description: shortText(1000),
+        degree_pt: ptText(160),
+        field_pt: ptText(160),
+        activities_pt: ptText(1000),
+        description_pt: ptText(1000),
+        start_pt: ptText(40),
+        end_pt: ptText(40),
       }),
     )
     .max(10),
@@ -65,10 +90,26 @@ export const siteProfileSchema = z.object({
         start: shortText(40),
         end: shortText(40),
         description: shortText(1000),
+        role_pt: ptText(160),
+        employment_type_pt: ptText(80),
+        location_pt: ptText(120),
+        skills_pt: ptText(600),
+        description_pt: ptText(1000),
+        start_pt: ptText(40),
+        end_pt: ptText(40),
       }),
     )
     .max(20),
-  skills: z.array(z.object({ group: shortText(80).min(1), items: z.array(shortText(60).min(1)).max(20) })).max(10),
+  skills: z
+    .array(
+      z.object({
+        group: shortText(80).min(1),
+        items: z.array(shortText(60).min(1)).max(20),
+        group_pt: ptText(80),
+        items_pt: ptList(20, 60),
+      }),
+    )
+    .max(10),
   certifications: z
     .array(
       z.object({
@@ -81,6 +122,9 @@ export const siteProfileSchema = z.object({
         image_path: imagePathSchema.optional(),
         pdf_file_id: z.union([z.uuid(), z.literal(''), z.null()]).optional(),
         name: shortText(200).min(1),
+        name_pt: ptText(200),
+        description_pt: ptText(1000),
+        skills_pt: ptText(600),
         issuer: shortText(160),
         year: shortText(10),
         url: z.union([
@@ -94,6 +138,7 @@ export const siteProfileSchema = z.object({
       }),
     )
     .max(30),
+  translations: z.object({ pt: profileTranslationSchema.optional().default(profileTranslationSchema.parse({})) }),
 });
 
 export type SiteProfileInput = z.input<typeof siteProfileSchema>;
@@ -105,8 +150,10 @@ export const siteSettingsSchema = z.object({
     tagline: shortText(200),
     description: shortText(320),
     keywords: z.array(shortText(60).min(1)).max(20),
+    tagline_pt: ptText(200),
+    description_pt: ptText(320),
   }),
-  contact: z.object({ intro: shortText(600) }),
+  contact: z.object({ intro: shortText(600), intro_pt: ptText(600) }),
 });
 
 export type SiteSettingsInput = z.input<typeof siteSettingsSchema>;

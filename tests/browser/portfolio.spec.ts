@@ -237,8 +237,57 @@ test.describe.serial('real portfolio flows', () => {
     expect((await request.get('/articles/end-to-end-research-note-revised')).status()).toBe(404);
     await context.close();
   });
+  test('bilingual: Portuguese version of an article, locale routing and the language switcher', async ({ browser }) => {
+    const context = await browser.newContext({ storageState: '.e2e/browser-admin.json' });
+    const page = await context.newPage();
+    await page.goto('/admin/articles/new');
+    await page.getByLabel('Title', { exact: true }).fill('Bilingual evidence note');
+    await page.getByLabel('Summary', { exact: true }).fill('An article written in English and then translated.');
+    await page
+      .getByRole('textbox', { name: 'Article content', exact: true })
+      .fill('English body about confidence intervals and the uncertainty of clinical estimates. '.repeat(4));
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+    await page.waitForURL(/\/admin\/articles\/[a-f0-9-]{36}$/);
+    const englishId = page.url().split('/').pop()!;
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Unpublish', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Create Portuguese version', exact: true }).click();
+    await page.waitForURL((url) => /\/admin\/articles\/[a-f0-9-]{36}$/.test(url.pathname) && !url.pathname.endsWith(englishId));
+    await expect(page.getByLabel('Language', { exact: true })).toHaveValue('pt');
+    await page.getByLabel('Title', { exact: true }).fill('Nota bilíngue sobre evidência');
+    await page.getByLabel('Summary', { exact: true }).fill('Um artigo escrito em inglês e depois traduzido.');
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+    await expect(page.getByText('Draft saved.', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Unpublish', exact: true })).toBeVisible();
+    // Both versions are linked: the switcher in the editor opens the English one.
+    await expect(page.getByRole('link', { name: 'EN', exact: true })).toHaveAttribute('href', `/admin/articles/${englishId}`);
+
+    // Unprefixed URLs follow the browser language; Portuguese pages use Portuguese segments.
+    const visitor = await browser.newContext({ locale: 'pt-BR' });
+    const reader = await visitor.newPage();
+    await reader.goto('/articles');
+    await expect(reader).toHaveURL(/\/pt\/artigos$/);
+    await expect(reader.locator('html')).toHaveAttribute('lang', 'pt-BR');
+    await expect(reader.getByRole('link', { name: 'Nota bilíngue sobre evidência' })).toBeVisible();
+    await expect(reader.getByRole('link', { name: 'Bilingual evidence note' })).toHaveCount(0);
+    await reader.goto('/pt/articles');
+    await expect(reader).toHaveURL(/\/pt\/artigos$/);
+
+    await reader.goto('/en/articles/bilingual-evidence-note');
+    await expect(reader.locator('html')).toHaveAttribute('lang', 'en');
+    await reader.getByRole('link', { name: 'Ler em português' }).click();
+    await expect(reader).toHaveURL(/\/pt\/artigos\/bilingual-evidence-note-pt$/);
+    await expect(reader.getByRole('heading', { level: 1, name: 'Nota bilíngue sobre evidência' })).toBeVisible();
+    // The choice is remembered for unprefixed links.
+    await reader.goto('/');
+    await expect(reader).toHaveURL(/\/pt$/);
+    await visitor.close();
+    await context.close();
+  });
   test('responsive public pages and admin at all requested widths', async ({ browser }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(600_000);
     const context = await browser.newContext({ storageState: '.e2e/browser-admin.json', reducedMotion: 'reduce' });
     const page = await context.newPage();
     const routes = [
@@ -269,6 +318,12 @@ test.describe.serial('real portfolio flows', () => {
       '/admin/security',
       '/admin/settings',
       '/admin/files?tab=images',
+      '/pt',
+      '/pt/artigos',
+      '/pt/sobre',
+      '/pt/cv',
+      '/pt/contato',
+      '/pt/privacidade',
     ];
     // Discover an actual article slug, so fixtures and real routing stay aligned.
     await page.goto('/articles');

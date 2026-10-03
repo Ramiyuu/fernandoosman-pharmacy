@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 
+import { HTML_LANG } from '@/i18n/config';
+import { getLocale } from '@/i18n/server';
 import { siteUrl } from '@/lib/public-env';
 
 import './globals.css';
@@ -54,7 +56,6 @@ export const metadata: Metadata = {
     template: '%s | Fernando Osman',
   },
   description: 'Scientific communication, clinical evidence and data-driven learning in pharmacy.',
-  alternates: { types: { 'application/rss+xml': '/rss.xml' } },
   applicationName: 'Fernando Osman',
   authors: [{ name: 'Fernando Osman' }],
   formatDetection: { telephone: false, email: false, address: false },
@@ -65,9 +66,12 @@ export const viewport: Viewport = {
   colorScheme: 'light',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// The public site sets the locale in the proxy (from /en or /pt); everything
+// else (admin, preview) renders in English.
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="en" className={`${montserrat.variable} ${sourceSerif.variable}`}>
+    <html lang={HTML_LANG[locale]} className={`${montserrat.variable} ${sourceSerif.variable}`}>
       <body className="min-h-dvh bg-white">{children}</body>
     </html>
   );

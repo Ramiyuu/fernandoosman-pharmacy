@@ -7,8 +7,10 @@ import { slugInput, uuidSchema } from './common';
 export const topicInputSchema = z.object({
   id: uuidSchema.nullable(),
   name: z.string().trim().min(1, 'Add a name.').max(80),
+  name_pt: z.string().trim().max(80).default(''),
   slug: slugInput,
   description: z.string().trim().max(500),
+  description_pt: z.string().trim().max(500).default(''),
   icon: z.string().refine((value) => TOPIC_ICON_NAMES.includes(value), 'Choose an icon from the list.'),
   sort_order: z.coerce.number().int().min(-1000).max(1000),
 });
@@ -16,8 +18,10 @@ export const topicInputSchema = z.object({
 export const categoryInputSchema = z.object({
   id: uuidSchema.nullable(),
   name: z.string().trim().min(1, 'Add a name.').max(80),
+  name_pt: z.string().trim().max(80).default(''),
   slug: slugInput,
   description: z.string().trim().max(500),
+  description_pt: z.string().trim().max(500).default(''),
   sort_order: z.coerce.number().int().min(-1000).max(1000),
 });
 

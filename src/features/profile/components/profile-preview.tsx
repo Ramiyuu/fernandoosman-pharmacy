@@ -3,9 +3,10 @@
 import { useWatch, type Control } from 'react-hook-form';
 
 import { Tagline, Wordmark } from '@/components/brand/brand';
+import { en } from '@/i18n/dictionaries/en';
 import type { SiteProfile } from '@/types/content';
 
-import { ProfileCard } from './profile-card';
+import { ProfileCardView } from './profile-card-view';
 import type { ProfileFormValues } from './profile-form';
 
 const toSemester = (value: string) => {
@@ -48,6 +49,7 @@ export function ProfilePreview({ control }: { control: Control<ProfileFormValues
     experience: [],
     skills: [],
     certifications: [],
+    translations: {},
     updated_at: new Date(0).toISOString(),
   };
 
@@ -59,7 +61,15 @@ export function ProfilePreview({ control }: { control: Control<ProfileFormValues
         <Tagline items={profile.focus_areas} className="mt-3 text-xs font-light" />
         {profile.headline ? <p className="mt-3 text-sm font-semibold text-navy-900">{profile.headline}</p> : null}
       </div>
-      <ProfileCard profile={profile} />
+      <ProfileCardView
+        profile={profile}
+        cvHref="/en/cv"
+        copy={{
+          ...en.profile,
+          portrait: en.about.portrait(profile.full_name),
+          semester: profile.current_semester ? en.profile.semester(profile.current_semester, profile.total_semesters) : null,
+        }}
+      />
     </div>
   );
 }

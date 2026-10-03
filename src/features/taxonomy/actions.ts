@@ -36,7 +36,7 @@ export async function saveTopicAction(input: TopicInput): Promise<ActionResult<{
   const parsed = topicInputSchema.safeParse(input);
   if (!parsed.success) return invalidInput(parsed.error);
 
-  const { id, name, description, icon, sort_order: sortOrder } = parsed.data;
+  const { id, name, name_pt: namePt, description, description_pt: descriptionPt, icon, sort_order: sortOrder } = parsed.data;
   const slug = parsed.data.slug || slugify(name);
   if (!slug) return fail('Add a name that contains letters or numbers.');
 
@@ -44,10 +44,11 @@ export async function saveTopicAction(input: TopicInput): Promise<ActionResult<{
   try {
     saved = await guard.session.db.maybeOne(
       id
-        ? sql`update public.topics set name = ${name}, slug = ${slug}, description = ${description}, icon = ${icon}, sort_order = ${sortOrder}
+        ? sql`update public.topics set name = ${name}, name_pt = ${namePt}, slug = ${slug}, description = ${description},
+                description_pt = ${descriptionPt}, icon = ${icon}, sort_order = ${sortOrder}
               where id = ${id} returning id`
-        : sql`insert into public.topics (name, slug, description, icon, sort_order)
-              values (${name}, ${slug}, ${description}, ${icon}, ${sortOrder}) returning id`,
+        : sql`insert into public.topics (name, name_pt, slug, description, description_pt, icon, sort_order)
+              values (${name}, ${namePt}, ${slug}, ${description}, ${descriptionPt}, ${icon}, ${sortOrder}) returning id`,
     );
   } catch (error) {
     return failFromDbError('topics.save', error);
@@ -64,7 +65,7 @@ export async function saveCategoryAction(input: CategoryInput): Promise<ActionRe
   const parsed = categoryInputSchema.safeParse(input);
   if (!parsed.success) return invalidInput(parsed.error);
 
-  const { id, name, description, sort_order: sortOrder } = parsed.data;
+  const { id, name, name_pt: namePt, description, description_pt: descriptionPt, sort_order: sortOrder } = parsed.data;
   const slug = parsed.data.slug || slugify(name);
   if (!slug) return fail('Add a name that contains letters or numbers.');
 
@@ -72,10 +73,11 @@ export async function saveCategoryAction(input: CategoryInput): Promise<ActionRe
   try {
     saved = await guard.session.db.maybeOne(
       id
-        ? sql`update public.categories set name = ${name}, slug = ${slug}, description = ${description}, sort_order = ${sortOrder}
+        ? sql`update public.categories set name = ${name}, name_pt = ${namePt}, slug = ${slug}, description = ${description},
+                description_pt = ${descriptionPt}, sort_order = ${sortOrder}
               where id = ${id} returning id`
-        : sql`insert into public.categories (name, slug, description, sort_order)
-              values (${name}, ${slug}, ${description}, ${sortOrder}) returning id`,
+        : sql`insert into public.categories (name, name_pt, slug, description, description_pt, sort_order)
+              values (${name}, ${namePt}, ${slug}, ${description}, ${descriptionPt}, ${sortOrder}) returning id`,
     );
   } catch (error) {
     return failFromDbError('categories.save', error);

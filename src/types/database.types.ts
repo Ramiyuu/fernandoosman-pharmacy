@@ -58,8 +58,10 @@ export type ProfileRow = {
 export type TopicRow = {
   id: string;
   name: string;
+  name_pt: string;
   slug: string;
   description: string;
+  description_pt: string;
   icon: string;
   sort_order: number;
   created_at: Timestamp;
@@ -69,8 +71,10 @@ export type TopicRow = {
 export type CategoryRow = {
   id: string;
   name: string;
+  name_pt: string;
   slug: string;
   description: string;
+  description_pt: string;
   sort_order: number;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -159,6 +163,8 @@ export type MediaFileRow = {
 };
 
 export type ProjectRow = {
+  language: string;
+  translation_of_project_id: string | null;
   id: string;
   title: string;
   slug: string;
@@ -214,6 +220,8 @@ export type SiteProfileRow = {
   experience: Json;
   skills: Json;
   certifications: Json;
+  /** {"pt": {...}}: Portuguese versions of the top-level text fields (0016). */
+  translations: Json;
   updated_at: Timestamp;
   updated_by: string | null;
 };
